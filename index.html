@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão Financeira</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Minhas Finanças</h1>
+        <p>Saldo Atual: <span id="saldo-header">R$ 0.00</span></p> </header>
+
+    <main>
+        <nav class="navigation-buttons">
+            <button id="btn-novo-lancamento" class="nav-button active">Novo Lançamento</button>
+            <button id="btn-resumo-mensal" class="nav-button">Resumo Mensal</button>
+            <button id="btn-planilha" class="nav-button">Planilha de Lançamentos</button>
+        </nav>
+
+        <div id="content-novo-lancamento" class="content-section active">
+            <section>
+                <h2>Novo Lançamento</h2>
+                <form id="form-lancamento">
+                    <input type="date" id="data" required>
+                    <input type="text" id="descricao" placeholder="Descrição" required>
+                    <input type="number" id="valor" placeholder="Valor" step="0.01" required>
+                    <select id="tipo" required>
+                        <option value="">Selecione o Tipo</option>
+                        <option value="receita">Receita</option>
+                        <option value="despesa">Despesa</option>
+                        <option value="investimento">Investimento</option>
+                    </select>
+                    <input type="text" id="categoria" placeholder="Categoria" required>
+                    <button type="submit">Adicionar Lançamento</button>
+                </form>
+            </section>
+        </div>
+
+        <div id="content-resumo-mensal" class="content-section">
+            <section>
+                <h2>Resumo Mensal</h2>
+                <div id="resumo-detalhes">
+                    <p>Receitas: <span id="total-receitas">0.00</span></p>
+                    <p>Despesas: <span id="total-despesas">0.00</span></p>
+                    <p>Investimentos: <span id="total-investimentos">0.00</span></p>
+                    <p>Saldo: <span id="saldo-total">0.00</span></p>
+                </div>
+            </section>
+        </div>
+
+        <div id="content-planilha" class="content-section">
+            <section id="planilha-dinamica">
+                <h2>Planilha de Lançamentos</h2>
+                <select id="selecionar-mes"></select>
+                <table id="tabela-lancamentos">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Descrição</th>
+                            <th>Valor</th>
+                            <th>Tipo</th>
+                            <th>Categoria</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+                <button id="btn-imprimir">Imprimir Planilha</button>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Gestão Financeira</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

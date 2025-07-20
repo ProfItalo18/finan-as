@@ -1,0 +1,385 @@
+/* style.css - Revisão e Otimização */
+
+/* --- Variáveis CSS (Opcional, mas recomendado para temas) --- */
+:root {
+    --primary-color: #27ae60; /* Verde vibrante (ações, ativo) */
+    --primary-dark: #229a54;  /* Verde mais escuro no hover */
+    --secondary-color: #34495e; /* Azul escuro (cabeçalhos, texto principal) */
+    --background-light: #f4f7f6; /* Fundo quase branco */
+    --background-white: #ffffff; /* Fundo branco para seções */
+    --border-light: #e0e0e0; /* Bordas claras */
+    --text-color: #333; /* Cor padrão do texto */
+    --text-light: #777; /* Texto mais claro (rodapé) */
+    --neutral-button: #ecf0f1; /* Botão neutro */
+    --neutral-button-hover: #dfe6e9; /* Botão neutro hover */
+    --danger-color: #e74c3c; /* Vermelho (excluir) */
+    --info-color: #3498db; /* Azul (editar) */
+    --warning-color: #f39c12; /* Laranja (investimento) */
+    --accent-purple: #8e44ad; /* Roxo (imprimir) */
+    --accent-purple-dark: #7d3c9f; /* Roxo hover */
+    --shadow-light: rgba(0,0,0,0.05); /* Sombra leve */
+    --shadow-medium: rgba(0,0,0,0.1); /* Sombra média */
+}
+
+/* --- Base e Reset Básico --- */
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-light);
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* --- Cabeçalho --- */
+header {
+    background-color: var(--secondary-color);
+    color: var(--background-white);
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 4px var(--shadow-medium);
+}
+
+header h1 {
+    color: var(--background-white); /* Garante que o H1 no header seja branco */
+    margin-bottom: 5px;
+}
+
+header p {
+    font-size: 1.1em;
+    margin-top: 5px;
+    margin-bottom: 0;
+    color: rgba(255, 255, 255, 0.9); /* Um branco um pouco mais suave */
+}
+
+#saldo-header {
+    font-weight: bold;
+    color: var(--primary-color); /* Verde para o saldo */
+    font-size: 1.2em; /* Um pouco maior para destaque */
+}
+
+/* --- Container Principal --- */
+main {
+    flex-grow: 1;
+    padding: 20px;
+    max-width: 900px;
+    margin: 20px auto;
+    background-color: var(--background-white);
+    border-radius: 8px;
+    box-shadow: 0 4px 8px var(--shadow-light);
+}
+
+h2 { /* Estilo para H2 fora do header */
+    color: var(--secondary-color);
+    margin-top: 0;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+/* --- Botões de Navegação --- */
+.navigation-buttons {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+.nav-button {
+    padding: 12px 25px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: var(--neutral-button);
+    color: var(--secondary-color);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    flex-grow: 1;
+    max-width: 250px;
+}
+
+.nav-button:hover {
+    background-color: var(--neutral-button-hover);
+    border-color: #a0a8ab;
+}
+
+.nav-button.active {
+    background-color: var(--primary-color);
+    color: var(--background-white);
+    border-color: var(--primary-color);
+    font-weight: bold;
+}
+
+/* --- Seções de Conteúdo (esconder/mostrar) --- */
+.content-section {
+    display: none;
+}
+
+.content-section.active {
+    display: block;
+}
+
+/* --- Estilo Geral das Seções --- */
+section {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    background-color: var(--background-white);
+    box-shadow: 0 1px 3px var(--shadow-light);
+}
+
+section h2 {
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+/* --- Formulários e Inputs --- */
+form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+form input,
+form select,
+form button {
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+form button[type="submit"] {
+    grid-column: span 2;
+    background-color: var(--primary-color);
+    color: var(--background-white);
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.3s ease;
+}
+
+form button[type="submit"]:hover {
+    background-color: var(--primary-dark);
+}
+
+/* --- Resumo Mensal --- */
+#resumo-detalhes p {
+    font-size: 1.1em;
+    margin-bottom: 8px;
+}
+
+#total-receitas { color: var(--primary-color); }
+#total-despesas { color: var(--danger-color); }
+#total-investimentos { color: var(--warning-color); }
+#saldo-total { font-weight: bold; color: var(--info-color); }
+
+/* --- Estilo do Filtro de Mês (Select) --- */
+#selecionar-mes {
+    width: 100%;
+    margin-top: 15px;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: var(--background-white);
+    color: var(--text-color);
+    font-size: 1rem;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="%23333333" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 20px;
+    transition: border-color 0.2s ease;
+}
+
+#selecionar-mes:hover {
+    border-color: #999;
+}
+
+#selecionar-mes:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.2);
+}
+
+/* --- Planilha de Lançamentos (Tabela) --- */
+#planilha-dinamica {
+    margin-top: 0;
+    padding: 20px;
+    background-color: var(--background-white);
+    border-radius: 8px;
+    box-shadow: 0 2px 5px var(--shadow-light);
+}
+
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 15px;
+    font-size: 0.95em;
+    box-shadow: 0 1px 3px var(--shadow-light);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+table th,
+table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-light);
+}
+
+table th {
+    background-color: var(--secondary-color);
+    color: var(--background-white);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Arredondamento dos cantos do cabeçalho da tabela */
+table th:first-child {
+    border-top-left-radius: 6px;
+}
+table th:last-child {
+    border-top-right-radius: 6px;
+}
+
+table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+table tr:hover {
+    background-color: #f0f0f0;
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* Cores para os tipos de lançamento na tabela */
+table td.receita {
+    color: var(--primary-color);
+}
+table td.despesa {
+    color: var(--danger-color);
+}
+table td.investimento {
+    color: var(--warning-color);
+}
+
+/* --- Botões de Ação na Tabela (Editar/Excluir) --- */
+.acao-btn {
+    padding: 7px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: bold;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-right: 5px;
+}
+
+.acao-btn.editar {
+    background-color: var(--info-color);
+    color: var(--background-white);
+}
+
+.acao-btn.editar:hover {
+    background-color: #2980b9;
+}
+
+.acao-btn.excluir {
+    background-color: var(--danger-color);
+    color: var(--background-white);
+}
+
+.acao-btn.excluir:hover {
+    background-color: #c0392b;
+}
+
+/* --- Botão de Imprimir --- */
+#btn-imprimir {
+    display: block;
+    margin: 20px auto 0;
+    padding: 12px 25px;
+    background-color: var(--accent-purple);
+    color: var(--background-white);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+}
+
+#btn-imprimir:hover {
+    background-color: var(--accent-purple-dark);
+}
+
+/* --- Rodapé --- */
+footer {
+    text-align: center;
+    padding: 20px;
+    margin-top: 30px;
+    background-color: var(--neutral-button);
+    color: var(--text-light);
+    font-size: 0.9em;
+}
+
+/* --- Responsividade Básica --- */
+@media (max-width: 768px) {
+    main {
+        margin: 10px;
+        padding: 15px;
+    }
+    .navigation-buttons {
+        flex-direction: column;
+    }
+    .nav-button {
+        max-width: 100%;
+    }
+    form {
+        grid-template-columns: 1fr;
+    }
+    form button[type="submit"] {
+        grid-column: span 1;
+    }
+    table th,
+    table td {
+        padding: 8px 10px;
+        font-size: 0.9em;
+    }
+    .acao-btn {
+        padding: 5px 8px;
+        font-size: 0.75em;
+    }
+    header p {
+        font-size: 1em; /* Ajusta o tamanho do saldo para telas menores */
+    }
+    #saldo-header {
+        font-size: 1.1em;
+    }
+}
+
+@media (max-width: 480px) {
+    h1 {
+        font-size: 1.8em;
+    }
+    h2 {
+        font-size: 1.4em;
+    }
+    form input,
+    form select,
+    form button {
+        font-size: 0.9rem;
+    }
+}
