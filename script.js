@@ -1,494 +1,546 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Elementos do DOM ---
-    const formLancamento = document.getElementById('form-lancamento');
-    const descricaoInput = document.getElementById('descricao');
-    const valorInput = document.getElementById('valor');
-    const dataInput = document.getElementById('data');
+    // --- Referências aos Elementos do DOM ---
+    const btnLancamento = document.getElementById('btnLancamento');
+    const btnResumo = document.getElementById('btnResumo');
+    const btnHistorico = document.getElementById('btnHistorico');
+
+    const lancamentoSection = document.getElementById('lancamentoSection');
+    const resumoSection = document.getElementById('resumoSection');
+    const historicoSection = document.getElementById('historicoSection');
+
+    const formLancamento = document.getElementById('formLancamento');
     const tipoSelect = document.getElementById('tipo');
     const categoriaSelect = document.getElementById('categoria');
-    const tabelaLancamentosBody = document.querySelector('#tabela-lancamentos tbody');
-    const totalReceitasSpan = document.getElementById('total-receitas');
-    const totalDespesasSpan = document.getElementById('total-despesas');
-    const totalInvestimentosSpan = document.getElementById('total-investimentos');
-    const saldoMensalSpan = document.getElementById('saldo-mensal');
-    const filtroMesAnoSelect = document.getElementById('filtro-mes-ano');
-    const btnImprimir = document.getElementById('btn-imprimir');
+    const tabelaHistoricoBody = document.querySelector('#tabelaHistorico tbody');
+    const resumoContainer = document.getElementById('resumoContainer');
+    const mesFiltro = document.getElementById('mesFiltro');
+    const btnFiltrarHistorico = document.getElementById('btnFiltrarHistorico');
+    const btnPrintHistorico = document.getElementById('btnPrintHistorico');
 
-    // Elementos do Scanner
-    const barcodeScannerSection = document.getElementById('barcode-scanner');
-    const startScannerBtn = document.getElementById('start-scanner-btn'); // Visibilidade controlada via JS
-    const stopScannerBtn = document.getElementById('stop-scanner-btn');
-    const closeScannerBtn = document.getElementById('close-scanner-btn');
-    const barcodeResultP = document.getElementById('barcode-result');
-    const scannerStatusP = document.getElementById('scanner-status');
-    const openScannerBtn = document.getElementById('open-scanner-btn');
+    // Elementos do Modal de Edição
+    const editModal = document.getElementById('editModal');
+    const closeButton = editModal.querySelector('.close-button');
+    const formEditLancamento = document.getElementById('formEditLancamento');
+    const editId = document.getElementById('editId');
+    const editTipo = document.getElementById('editTipo');
+    const editCategoria = document.getElementById('editCategoria');
+    const editDescricao = document.getElementById('editDescricao');
+    const editValor = document.getElementById('editValor');
+    const editDataVencimento = document.getElementById('editDataVencimento');
+    const editStatus = document.getElementById('editStatus');
 
-    // --- Variáveis de Estado ---
+    // Elemento para o feedback do usuário (TOAST)
+    const feedbackToast = document.getElementById('feedbackToast'); // NOVO ELEMENTO!
+
+    // --- Armazenamento de Dados ---
     let lancamentos = JSON.parse(localStorage.getItem('lancamentos')) || [];
-    let editandoId = null;
-    let scannerRunning = false;
 
-    // --- Dados Fixos (Categorias) ---
+    // --- Categorias Pré-definidas ---
     const categorias = {
-        receita: ['Salário', 'Freelance', 'Dividendos', 'Aluguel Recebido', 'Venda de Ativos', 'Reembolso', 'Outros'],
-        despesa: ['Moradia (Aluguel/Prestação)', 'Alimentação', 'Transporte', 'Lazer e Entretenimento', 'Saúde', 'Educação', 'Contas de Consumo (Água, Luz, Internet)', 'Vestuário', 'Impostos e Taxas', 'Automóvel', 'Dívidas e Empréstimos', 'Outros'],
-        investimento: ['Renda Fixa (CDB, LCI/LCA)', 'Renda Variável (Ações, FIIs)', 'Fundos de Investimento', 'Previdência Privada', 'Criptomoedas', 'Tesouro Direto', 'Outros']
+        receita: ['Salário', 'Freelance', 'Vendas', 'Aluguel Recebido', 'Rendimento de Investimentos', 'Presente/Doação', 'Reembolso', 'Outras Receitas'],
+        despesa: ['Moradia', 'Alimentação', 'Transporte', 'Lazer', 'Educação', 'Saúde', 'Contas', 'Vestuário', 'Cuidados Pessoais', 'Outras Despesas'],
+        investimento: ['Ações', 'Fundos de Investimento', 'Renda Fixa', 'Criptomoedas', 'Previdência Privada', 'Imóveis', 'Poupança', 'Outros Investimentos']
     };
 
     // --- Funções Auxiliares ---
 
-    /**
-     * Gera um ID alfanumérico aleatório de 5 caracteres.
-     * @returns {string} O ID gerado.
-     */
-    function gerarId() {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    function generateId() {
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let result = '';
         for (let i = 0; i < 5; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
+            result += characters.charAt(Math.floor(Math.random() * characters.length));
         }
         return result;
     }
 
-    /**
-     * Formata um valor numérico para o formato de moeda BRL.
-     * @param {number} valor - O valor a ser formatado.
-     * @returns {string} O valor formatado.
-     */
-    function formatarMoeda(valor) {
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+    function showSection(sectionToShow) {
+        document.querySelectorAll('section').forEach(section => {
+            section.classList.remove('active');
+            section.classList.add('hidden');
+        });
+        sectionToShow.classList.remove('hidden');
+        sectionToShow.classList.add('active');
     }
 
     /**
-     * Tenta extrair o valor de um código de barras de boleto brasileiro (linha digitável).
-     * Esta função é uma ABORDAGEM SIMPLIFICADA e pode não ser 100% precisa para
-     * todos os tipos de boletos brasileiros, que seguem padrões complexos (FEBRABAN).
-     * @param {string} barcode - A linha digitável do boleto (geralmente 47 ou 48 dígitos).
-     * @returns {number} O valor extraído ou 0 se não for possível.
+     * Exibe uma mensagem de feedback ao usuário usando um toast.
+     * @param {string} message - A mensagem a ser exibida.
+     * @param {string} type - Tipo de mensagem ('success', 'error', 'info', 'warning').
      */
-    function extractValueFromBarcode(barcode) {
-        // Remove caracteres não numéricos
-        const cleanBarcode = barcode.replace(/\D/g, '');
-
-        // Lógica para linha digitável de 47 ou 48 dígitos (boletos bancários brasileiros)
-        if (cleanBarcode.length === 47 || cleanBarcode.length === 48) {
-            // Para boletos de 47 dígitos (títulos): o valor está na posição 37-47 (10 dígitos)
-            // Os 8 primeiros são inteiros, os 2 últimos são centavos
-            const valorString = cleanBarcode.substring(37, 47); // Ex: "0000012345"
-            if (valorString.match(/^\d{10}$/)) { // Verifica se são 10 dígitos numéricos
-                const valorInteiro = parseInt(valorString.substring(0, 8), 10);
-                const valorDecimal = parseInt(valorString.substring(8, 10), 10);
-                return parseFloat(`${valorInteiro}.${valorDecimal}`);
-            }
+    function showFeedback(message, type = 'info') {
+        if (!feedbackToast) { // Fallback para alert se o toast não existir
+            alert(message);
+            return;
         }
-        // Para códigos de barras de convênio (geralmente 48 dígitos, mas com DV diferente)
-        // O valor pode estar em posições diferentes, dependendo do tipo de convênio.
-        // Se a primeira parte não se encaixa, podemos tentar outras lógicas genéricas.
-        // Exemplo: Últimos 10 dígitos como valor (alguns EANs ou Code128 podem ter essa estrutura simples)
-        if (cleanBarcode.length >= 10) {
-            const lastTen = cleanBarcode.substring(cleanBarcode.length - 10);
-            if (lastTen.match(/^\d+$/)) { // Se for só número
-                const integerPart = parseInt(lastTen.substring(0, lastTen.length - 2), 10);
-                const decimalPart = parseInt(lastTen.substring(lastTen.length - 2), 10);
-                return parseFloat(`${integerPart}.${decimalPart}`);
-            }
-        }
-
-        console.warn("Não foi possível extrair um valor numérico válido do código de barras:", barcode);
-        return 0; // Retorna 0 se não conseguir extrair um valor
+        feedbackToast.textContent = message;
+        feedbackToast.className = `toast show ${type}`;
+        setTimeout(() => {
+            feedbackToast.className = feedbackToast.className.replace("show", "");
+        }, 3000); // Toast visível por 3 segundos
     }
 
-    // --- Gerenciamento de UI ---
-
-    /**
-     * Popula o select de categorias com base no tipo de lançamento selecionado.
-     */
-    function popularCategorias() {
-        const tipo = tipoSelect.value;
-        categoriaSelect.innerHTML = '<option value="">Selecione a Categoria</option>';
-        if (tipo && categorias[tipo]) {
-            categorias[tipo].forEach(categoria => {
+    function loadCategories(selectElement, selectedType, selectedCategory = '') {
+        selectElement.innerHTML = '<option value="">Selecione</option>';
+        if (selectedType && categorias[selectedType]) {
+            categorias[selectedType].forEach(categoria => {
                 const option = document.createElement('option');
                 option.value = categoria;
                 option.textContent = categoria;
-                categoriaSelect.appendChild(option);
+                if (categoria === selectedCategory) {
+                    option.selected = true;
+                }
+                selectElement.appendChild(option);
             });
-            categoriaSelect.disabled = false;
-        } else {
-            categoriaSelect.disabled = true;
         }
     }
 
-    /**
-     * Popula o select de filtro de mês/ano com os meses dos lançamentos existentes.
-     */
-    function popularFiltroMesAno() {
-        const mesesAnos = new Set();
-        lancamentos.forEach(lancamento => {
-            const data = new Date(lancamento.data + 'T12:00:00'); // Adiciona T12:00:00 para evitar problemas de fuso horário
-            const mesAno = `${data.getFullYear()}-${(data.getMonth() + 1).toString().padStart(2, '0')}`;
-            mesesAnos.add(mesAno);
-        });
+    // Evento para carregar categorias no formulário de Novo Lançamento
+    tipoSelect.addEventListener('change', () => {
+        loadCategories(categoriaSelect, tipoSelect.value);
+    });
 
-        filtroMesAnoSelect.innerHTML = '<option value="todos">Todos os Meses</option>';
-        // Ordena do mais recente para o mais antigo
-        const sortedMesesAnos = Array.from(mesesAnos).sort((a, b) => b.localeCompare(a));
-        sortedMesesAnos.forEach(mesAno => {
-            const [ano, mes] = mesAno.split('-');
-            const dataExemplo = new Date(ano, parseInt(mes, 10) - 1, 1);
-            const nomeMes = dataExemplo.toLocaleString('pt-BR', { month: 'long' });
-            const option = document.createElement('option');
-            option.value = mesAno;
-            option.textContent = `${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)} de ${ano}`;
-            filtroMesAnoSelect.appendChild(option);
-        });
+    // --- Lógica de Adição de Lançamento ---
 
-        const dataAtual = new Date();
-        const mesAtual = `${dataAtual.getFullYear()}-${(dataAtual.getMonth() + 1).toString().padStart(2, '0')}`;
-        if (sortedMesesAnos.includes(mesAtual)) {
-            filtroMesAnoSelect.value = mesAtual;
-        } else {
-            filtroMesAnoSelect.value = 'todos';
-        }
-    }
-
-    /**
-     * Renderiza os lançamentos na tabela e atualiza o resumo.
-     */
-    function renderizarLancamentos() {
-        const filtroMesAno = filtroMesAnoSelect.value;
-        tabelaLancamentosBody.innerHTML = '';
-        let receitasTotal = 0;
-        let despesasTotal = 0;
-        let investimentosTotal = 0;
-
-        const lancamentosFiltrados = lancamentos.filter(lancamento => {
-            if (filtroMesAno === 'todos') {
-                return true;
-            }
-            const dataLancamento = new Date(lancamento.data + 'T12:00:00');
-            const mesAnoLancamento = `${dataLancamento.getFullYear()}-${(dataLancamento.getMonth() + 1).toString().padStart(2, '0')}`;
-            return mesAnoLancamento === filtroMesAno;
-        });
-
-        if (lancamentosFiltrados.length === 0) {
-            tabelaLancamentosBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum lançamento encontrado para este período.</td></tr>';
-        }
-
-        lancamentosFiltrados.forEach(lancamento => {
-            const row = tabelaLancamentosBody.insertRow();
-            row.dataset.id = lancamento.id;
-
-            if (lancamento.tipo === 'receita') {
-                row.style.color = 'var(--accent-color)';
-            } else if (lancamento.tipo === 'despesa') {
-                row.style.color = 'var(--danger-color)';
-            }
-
-            const statusClass = lancamento.statusPagamento === 'pago' ? 'status-pago' : 'status-pendente';
-            const dataPagamentoStr = lancamento.dataPagamento ? new Date(lancamento.dataPagamento + 'T12:00:00').toLocaleDateString('pt-BR') : '';
-            const statusText = lancamento.statusPagamento === 'pago' ? `Pago em ${dataPagamentoStr}` : 'Pendente';
-
-            row.innerHTML = `
-                <td>${lancamento.id}</td>
-                <td>${new Date(lancamento.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-                <td>${lancamento.descricao}</td>
-                <td>${lancamento.categoria}</td>
-                <td>${lancamento.tipo.charAt(0).toUpperCase() + lancamento.tipo.slice(1)}</td>
-                <td>${formatarMoeda(lancamento.valor)}</td>
-                <td class="${statusClass}">${statusText}</td>
-                <td class="action-buttons">
-                    <button class="edit-btn" data-id="${lancamento.id}">Editar</button>
-                    <button class="delete-btn" data-id="${lancamento.id}">Excluir</button>
-                    ${lancamento.statusPagamento === 'pendente' ? `<button class="pay-btn" data-id="${lancamento.id}">Baixar</button>` : ''}
-                </td>
-            `;
-
-            // Apenas despesas e investimentos PAGOS contam para o resumo!
-            if (lancamento.tipo === 'receita') {
-                receitasTotal += lancamento.valor;
-            } else if (lancamento.tipo === 'despesa' && lancamento.statusPagamento === 'pago') {
-                despesasTotal += lancamento.valor;
-            } else if (lancamento.tipo === 'investimento' && lancamento.statusPagamento === 'pago') {
-                investimentosTotal += lancamento.valor;
-            }
-        });
-        atualizarResumo(receitasTotal, despesasTotal, investimentosTotal);
-    }
-
-    /**
-     * Atualiza os valores exibidos no resumo mensal.
-     * @param {number} receitas - Total de receitas.
-     * @param {number} despesas - Total de despesas pagas.
-     * @param {number} investimentos - Total de investimentos pagos.
-     */
-    function atualizarResumo(receitas, despesas, investimentos) {
-        totalReceitasSpan.textContent = formatarMoeda(receitas);
-        totalDespesasSpan.textContent = formatarMoeda(despesas);
-        totalInvestimentosSpan.textContent = formatarMoeda(investimentos);
-        const saldo = receitas - despesas - investimentos;
-        saldoMensalSpan.textContent = formatarMoeda(saldo);
-        saldoMensalSpan.style.color = saldo >= 0 ? 'var(--accent-color)' : 'var(--danger-color)';
-    }
-
-    // --- Funções do Scanner ---
-
-    /**
-     * Inicia o QuaggaJS scanner.
-     */
-    function startScanner() {
-        if (scannerRunning) return;
-
-        scannerStatusP.textContent = 'Iniciando scanner...';
-        barcodeResultP.textContent = '';
-        stopScannerBtn.style.display = 'none'; // Garante que o botão de parar não apareça antes de iniciar
-
-        Quagga.init({
-            inputStream: {
-                name: "Live",
-                type: "LiveStream",
-                target: document.querySelector('#interactive.viewport'),
-                constraints: {
-                    width: { min: 640 },
-                    height: { min: 480 },
-                    aspectRatio: { min: 1, max: 100 },
-                    facingMode: "environment"
-                },
-            },
-            decoder: {
-                // Leitores comuns. 'i2of5_reader' é essencial para muitos boletos.
-                // A ordem pode influenciar a performance.
-                readers: ["ean_reader", "code_128_reader", "code_39_reader", "i2of5_reader"]
-            }
-        }, function (err) {
-            if (err) {
-                console.error("Erro ao iniciar QuaggaJS:", err);
-                scannerStatusP.textContent = `Erro ao iniciar câmera: ${err.message}. Verifique permissões.`;
-                barcodeResultP.textContent = 'Certifique-se de que sua câmera está funcionando e que você concedeu as permissões.';
-                scannerRunning = false;
-                startScannerBtn.style.display = 'inline-block'; // Permite tentar novamente
-                return;
-            }
-            console.log("QuaggaJS inicializado com sucesso!");
-            Quagga.start();
-            scannerRunning = true;
-            startScannerBtn.style.display = 'none';
-            stopScannerBtn.style.display = 'inline-block';
-            scannerStatusP.textContent = 'Posicione o código de barras na frente da câmera.';
-        });
-
-        // Este evento é disparado repetidamente, é importante ter uma lógica para parar após a primeira detecção válida.
-        Quagga.onDetected(function (result) {
-            const code = result.codeResult.code;
-            if (code && scannerRunning) { // Garante que o scanner ainda está ativo e que o código é válido
-                console.log("Código de Barras Detectado:", code);
-                decodeBarcodeAndFillForm(code);
-                stopScanner(); // Para o scanner após a primeira leitura bem-sucedida
-                Quagga.offDetected(); // Remove o listener para evitar múltiplas detecções
-            }
-        });
-
-        // Desenha os retângulos de detecção para feedback visual
-        Quagga.onProcessed(function(result) {
-            const drawingCtx = Quagga.canvas.ctx.overlay;
-            const drawingCanvas = Quagga.canvas.dom.overlay;
-
-            drawingCtx.clearRect(0, 0, parseInt(drawingCanvas.width), parseInt(drawingCanvas.height));
-
-            if (result) {
-                if (result.boxes) {
-                    result.boxes.filter(function (box) {
-                        return box !== result.box;
-                    }).forEach(function (box) {
-                        Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, drawingCtx, { color: "green", lineWidth: 2 });
-                    });
-                }
-                if (result.box) {
-                    Quagga.ImageDebug.drawPath(result.box, { x: 0, y: 1 }, drawingCtx, { color: "#00F", lineWidth: 2 });
-                }
-                if (result.codeResult && result.codeResult.code) {
-                    Quagga.ImageDebug.drawPath(result.line, { x: 'x', y: 'y' }, drawingCtx, { color: "red", lineWidth: 3 });
-                }
-            }
-        });
-    }
-
-    /**
-     * Para o QuaggaJS scanner.
-     */
-    function stopScanner() {
-        if (!scannerRunning) return;
-        Quagga.stop();
-        scannerRunning = false;
-        startScannerBtn.style.display = 'inline-block'; // Permite iniciar novamente manualmente
-        stopScannerBtn.style.display = 'none';
-        scannerStatusP.textContent = 'Scanner parado.';
-        barcodeResultP.textContent = ''; // Limpa o resultado ao parar
-        console.log("Scanner parado.");
-        // Remova listeners para evitar chamadas duplicadas se o scanner for reiniciado
-        Quagga.offDetected();
-        Quagga.offProcessed();
-    }
-
-    /**
-     * Decodifica o código de barras, extrai informações e preenche o formulário.
-     * @param {string} code - O código de barras decodificado.
-     */
-    function decodeBarcodeAndFillForm(code) {
-        barcodeResultP.textContent = `Código Lido: ${code}`;
-        scannerStatusP.textContent = 'Código de barras lido com sucesso! Preenchendo formulário...';
-
-        const valorLido = extractValueFromBarcode(code);
-
-        // Preenche os campos do formulário
-        descricaoInput.value = `Despesa - Boleto #${code.substring(code.length - 8)}`; // Usa parte final do código como ref
-        valorInput.value = valorLido.toFixed(2);
-        tipoSelect.value = 'despesa';
-        popularCategorias(); // Popula categorias para despesa
-        
-        // Tenta selecionar uma categoria comum para despesas de boleto
-        // Ajuste a lógica de seleção de categoria conforme suas necessidades
-        const suggestedCategories = [
-            'Contas de Consumo (Água, Luz, Internet)',
-            'Dívidas e Empréstimos',
-            'Impostos e Taxas',
-            'Outros'
-        ];
-        let categoryFound = false;
-        for (const cat of suggestedCategories) {
-            if (Array.from(categoriaSelect.options).some(opt => opt.value === cat)) {
-                categoriaSelect.value = cat;
-                categoryFound = true;
-                break;
-            }
-        }
-        if (!categoryFound && Array.from(categoriaSelect.options).some(opt => opt.value === 'Outros')) {
-            categoriaSelect.value = 'Outros';
-        }
-        
-        dataInput.valueAsDate = new Date(); // Data atual como data da despesa
-
-        // Volta para a seção de lançamentos após um pequeno atraso para o usuário ver o resultado
-        setTimeout(() => {
-            barcodeScannerSection.classList.add('scanner-hidden');
-            document.getElementById('lancamentos').style.display = 'block';
-            scannerStatusP.textContent = ''; // Limpa status
-            barcodeResultP.textContent = ''; // Limpa resultado
-        }, 1500); // 1.5 segundos de atraso
-    }
-
-    // --- Manipulação de Eventos ---
-
-    // Evento de submissão do formulário de lançamento
     formLancamento.addEventListener('submit', (e) => {
         e.preventDefault();
 
-        const novoLancamento = {
-            descricao: descricaoInput.value,
-            valor: parseFloat(valorInput.value),
-            data: dataInput.value, // Data no formato YYYY-MM-DD
-            tipo: tipoSelect.value,
-            categoria: categoriaSelect.value,
-            statusPagamento: 'pendente', // Sempre começa como pendente
-            dataPagamento: null
-        };
+        const descricaoInput = document.getElementById('descricao').value.trim();
+        const valorInput = parseFloat(document.getElementById('valor').value);
+        const dataVencimentoInput = document.getElementById('dataVencimento').value;
 
-        if (editandoId) {
-            lancamentos = lancamentos.map(lanc => {
-                if (lanc.id === editandoId) {
-                    // Mantém status de pagamento e data de pagamento existentes ao editar
-                    return { ...novoLancamento, id: lanc.id, statusPagamento: lanc.statusPagamento, dataPagamento: lanc.dataPagamento };
-                }
-                return lanc;
-            });
-            editandoId = null;
-            formLancamento.querySelector('button[type="submit"]').textContent = 'Adicionar Lançamento';
-        } else {
-            novoLancamento.id = gerarId();
-            lancamentos.push(novoLancamento);
+        if (!tipoSelect.value || !categoriaSelect.value || !descricaoInput || isNaN(valorInput) || valorInput <= 0 || !dataVencimentoInput) {
+            showFeedback('Por favor, preencha todos os campos corretamente: Tipo, Categoria, Descrição, Valor (maior que zero) e Data de Vencimento.', 'warning');
+            return;
         }
 
+        const novoLancamento = {
+            id: generateId(),
+            tipo: tipoSelect.value,
+            categoria: categoriaSelect.value,
+            descricao: descricaoInput,
+            valor: valorInput,
+            dataVencimento: dataVencimentoInput,
+            dataPagamento: null,
+            status: 'Pendente'
+        };
+
+        lancamentos.push(novoLancamento);
         localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
+
+        showFeedback('Lançamento adicionado com sucesso!', 'success');
         formLancamento.reset();
-        popularCategorias();
-        popularFiltroMesAno();
-        renderizarLancamentos();
+        categoriaSelect.innerHTML = '<option value="">Selecione o tipo primeiro</option>';
+
+        renderHistorico(mesFiltro.value);
+        renderResumo();
     });
 
-    // Eventos para botões de ação na tabela (editar, excluir, baixar)
-    tabelaLancamentosBody.addEventListener('click', (e) => {
+    // --- Lógica de Leitura de Código de Barras (se implementado) ---
+    const codigoBarrasInput = document.getElementById('codigoBarras');
+    if (codigoBarrasInput) { // Verifica se o campo existe no HTML
+        codigoBarrasInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const codigoLido = codigoBarrasInput.value.trim();
+                console.log('Código de barras lido:', codigoLido);
+
+                // Exemplo de integração com produtos mock (substituir por API/backend real)
+                const produtosMock = [
+                    { codigo: '7891234567890', nome: 'Pacote de Arroz 5kg', preco: 25.50, categoria: 'Alimentação', tipo: 'despesa' },
+                    { codigo: '9876543210987', nome: 'Livro "Dom Casmurro"', preco: 45.00, categoria: 'Educação', tipo: 'despesa' },
+                    { codigo: '1122334455667', nome: 'Serviço de Manutenção - PC', preco: 150.00, categoria: 'Outras Despesas', tipo: 'despesa' },
+                ];
+
+                const produto = produtosMock.find(p => p.codigo === codigoLido);
+
+                if (produto) {
+                    document.getElementById('descricao').value = produto.nome;
+                    document.getElementById('valor').value = produto.preco;
+                    tipoSelect.value = produto.tipo;
+                    loadCategories(categoriaSelect, produto.tipo, produto.categoria);
+                    showFeedback(`Produto '${produto.nome}' encontrado e preenchido.`, 'info');
+                } else {
+                    document.getElementById('descricao').value = `Item Cód: ${codigoLido}`;
+                    showFeedback('Código de barras não encontrado nos registros. Ajuste a descrição e outros campos.', 'warning');
+                }
+                codigoBarrasInput.value = ''; // Limpa o campo para a próxima leitura
+                document.getElementById('descricao').focus(); // Move o foco para a descrição
+            }
+        });
+    }
+
+    // --- Lógica de Renderização da Tabela de Histórico ---
+
+    function renderHistorico(filtroMes = null) {
+        tabelaHistoricoBody.innerHTML = '';
+
+        let lancamentosFiltrados = lancamentos;
+        if (filtroMes) {
+            lancamentosFiltrados = lancamentos.filter(lanc => {
+                const dataVencimento = new Date(lanc.dataVencimento + 'T00:00:00');
+                const [anoFiltro, mesFiltroNum] = filtroMes.split('-');
+                return dataVencimento.getFullYear() === parseInt(anoFiltro) &&
+                       (dataVencimento.getMonth() + 1) === parseInt(mesFiltroNum);
+            });
+        }
+
+        lancamentosFiltrados.sort((a, b) => {
+            const dateA = new Date(a.dataVencimento);
+            const dateB = new Date(b.dataVencimento);
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateA - dateB;
+            }
+            if (a.status === 'Pendente' && b.status === 'Pago') return -1;
+            if (a.status === 'Pago' && b.status === 'Pendente') return 1;
+            return 0;
+        });
+
+        if (lancamentosFiltrados.length === 0) {
+            tabelaHistoricoBody.innerHTML = '<tr><td colspan="9">Nenhum lançamento encontrado para este período.</td></tr>';
+            return;
+        }
+
+        lancamentosFiltrados.forEach(lanc => {
+            const row = tabelaHistoricoBody.insertRow();
+            row.dataset.id = lanc.id;
+
+            const statusClass = lanc.status === 'Pago' ? 'status-pago' : 'status-pendente';
+            const dataPagamentoFormatada = lanc.dataPagamento ? new Date(lanc.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A';
+
+            row.innerHTML = `
+                <td data-label="ID:">${lanc.id}</td>
+                <td data-label="Tipo:">${lanc.tipo.charAt(0).toUpperCase() + lanc.tipo.slice(1)}</td>
+                <td data-label="Categoria:">${lanc.categoria}</td>
+                <td data-label="Descrição:">${lanc.descricao}</td>
+                <td data-label="Valor:">${lanc.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                <td data-label="Vencimento:">${new Date(lanc.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                <td data-label="Pagamento:">${dataPagamentoFormatada}</td>
+                <td data-label="Status:" class="${statusClass}">${lanc.status}</td>
+                <td data-label="Ações:">
+                    <button class="acao-btn editar" data-id="${lanc.id}">Editar</button>
+                    <button class="acao-btn excluir" data-id="${lanc.id}">Excluir</button>
+                    ${lanc.status === 'Pendente' ? `<button class="acao-btn baixar" data-id="${lanc.id}">Baixar</button>` : ''}
+                </td>
+            `;
+        });
+    }
+
+    // --- Lógica de Renderização do Resumo Mensal ---
+
+    function renderResumo() {
+        resumoContainer.innerHTML = '';
+        const dataAtual = new Date();
+        const anoAtual = dataAtual.getFullYear();
+        const mesAtual = dataAtual.getMonth();
+
+        const lancamentosDoMes = lancamentos.filter(lanc => {
+            const dataVencimento = new Date(lanc.dataVencimento + 'T00:00:00');
+            return dataVencimento.getFullYear() === anoAtual && dataVencimento.getMonth() === mesAtual;
+        });
+
+        let totalReceitas = 0;
+        let totalDespesas = 0;
+        let totalInvestimentos = 0;
+
+        lancamentosDoMes.forEach(lanc => {
+            if (lanc.tipo === 'receita') {
+                totalReceitas += lanc.valor;
+            } else if (lanc.tipo === 'despesa') {
+                totalDespesas += lanc.valor;
+            } else if (lanc.tipo === 'investimento') {
+                totalInvestimentos += lanc.valor;
+            }
+        });
+
+        const saldoMensal = totalReceitas - totalDespesas;
+
+        resumoContainer.innerHTML = `
+            <h3>Mês de ${dataAtual.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}</h3>
+            <p><strong>Total de Receitas:</strong> ${totalReceitas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+            <p><strong>Total de Despesas:</strong> ${totalDespesas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+            <p><strong>Total de Investimentos:</strong> ${totalInvestimentos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+            <p><strong>Saldo Mensal:</strong> <span style="color: ${saldoMensal >= 0 ? 'var(--secondary-color)' : 'var(--danger-color)'};">${saldoMensal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></p>
+            <hr>
+            <h4>Despesas por Categoria (Registradas):</h4>
+            <ul id="detalhesDespesas"></ul>
+            <h4>Receitas por Categoria (Registradas):</h4>
+            <ul id="detalhesReceitas"></ul>
+            <h4>Investimentos Detalhados:</h4>
+            <ul id="detalhesInvestimentos"></ul>
+        `;
+
+        const detalhesDespesas = document.getElementById('detalhesDespesas');
+        const detalhesReceitas = document.getElementById('detalhesReceitas');
+        const detalhesInvestimentos = document.getElementById('detalhesInvestimentos');
+
+        const despesasPorCategoria = {};
+        lancamentosDoMes.filter(l => l.tipo === 'despesa').forEach(lanc => {
+            despesasPorCategoria[lanc.categoria] = (despesasPorCategoria[lanc.categoria] || 0) + lanc.valor;
+        });
+        if (Object.keys(despesasPorCategoria).length === 0) {
+            detalhesDespesas.innerHTML = '<li>Nenhuma despesa registrada neste mês.</li>';
+        } else {
+            Object.entries(despesasPorCategoria).sort(([, a], [, b]) => b - a).forEach(([categoria, valor]) => {
+                const li = document.createElement('li');
+                li.textContent = `${categoria}: ${valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+                detalhesDespesas.appendChild(li);
+            });
+        }
+
+        const receitasPorCategoria = {};
+        lancamentosDoMes.filter(l => l.tipo === 'receita').forEach(lanc => {
+            receitasPorCategoria[lanc.categoria] = (receitasPorCategoria[lanc.categoria] || 0) + lanc.valor;
+        });
+        if (Object.keys(receitasPorCategoria).length === 0) {
+            detalhesReceitas.innerHTML = '<li>Nenhuma receita registrada neste mês.</li>';
+        } else {
+            Object.entries(receitasPorCategoria).sort(([, a], [, b]) => b - a).forEach(([categoria, valor]) => {
+                const li = document.createElement('li');
+                li.textContent = `${categoria}: ${valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+                detalhesReceitas.appendChild(li);
+            });
+        }
+
+        const investimentosDoMes = lancamentosDoMes.filter(l => l.tipo === 'investimento');
+        if (investimentosDoMes.length === 0) {
+            detalhesInvestimentos.innerHTML = '<li>Nenhum investimento registrado neste mês.</li>';
+        } else {
+            investimentosDoMes.sort((a, b) => b.valor - a.valor).forEach(lanc => {
+                const li = document.createElement('li');
+                li.textContent = `${lanc.categoria} - ${lanc.descricao}: ${lanc.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+                detalhesInvestimentos.appendChild(li);
+            });
+        }
+    }
+
+    // --- Lógica de Ações da Tabela (Editar, Excluir, Baixar) ---
+
+    tabelaHistoricoBody.addEventListener('click', (e) => {
         const target = e.target;
         const id = target.dataset.id;
 
-        if (target.classList.contains('edit-btn')) {
-            const lancamentoParaEditar = lancamentos.find(lanc => lanc.id === id);
-            if (lancamentoParaEditar) {
-                descricaoInput.value = lancamentoParaEditar.descricao;
-                valorInput.value = lancamentoParaEditar.valor;
-                dataInput.value = lancamentoParaEditar.data;
-                tipoSelect.value = lancamentoParaEditar.tipo;
-                popularCategorias(); // Popula categorias antes de setar
-                categoriaSelect.value = lancamentoParaEditar.categoria;
+        if (!id) return;
 
-                editandoId = id;
-                formLancamento.querySelector('button[type="submit"]').textContent = 'Salvar Edição';
-                document.getElementById('lancamentos').scrollIntoView({ behavior: 'smooth' });
-            }
-        } else if (target.classList.contains('delete-btn')) {
-            if (confirm('Tem certeza que deseja excluir este lançamento?')) {
-                lancamentos = lancamentos.filter(lanc => lanc.id !== id);
-                localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
-                popularFiltroMesAno();
-                renderizarLancamentos();
-            }
-        } else if (target.classList.contains('pay-btn')) {
-            const lancamentoParaBaixar = lancamentos.find(lanc => lanc.id === id);
-            if (lancamentoParaBaixar && lancamentoParaBaixar.statusPagamento === 'pendente') {
-                lancamentoParaBaixar.statusPagamento = 'pago';
-                // Define a data de pagamento como o dia atual no formato YYYY-MM-DD
-                lancamentoParaBaixar.dataPagamento = new Date().toISOString().split('T')[0];
-                localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
-                renderizarLancamentos();
-            }
+        if (target.classList.contains('editar')) {
+            editLancamento(id);
+        } else if (target.classList.contains('excluir')) {
+            deleteLancamento(id);
+        } else if (target.classList.contains('baixar')) {
+            markAsPaid(id);
         }
     });
 
-    // Eventos de mudança para selects de filtro e tipo
-    tipoSelect.addEventListener('change', popularCategorias);
-    filtroMesAnoSelect.addEventListener('change', renderizarLancamentos);
+    function editLancamento(id) {
+        const lancamentoToEdit = lancamentos.find(lanc => lanc.id === id);
+        if (!lancamentoToEdit) {
+            showFeedback('Lançamento não encontrado para edição.', 'error');
+            return;
+        }
 
-    // Evento do botão de imprimir
-    btnImprimir.addEventListener('click', () => {
-        window.print();
-    });
+        editId.value = lancamentoToEdit.id;
+        editTipo.value = lancamentoToEdit.tipo;
+        loadCategories(editCategoria, lancamentoToEdit.tipo, lancamentoToEdit.categoria);
+        editDescricao.value = lancamentoToEdit.descricao;
+        editValor.value = lancamentoToEdit.valor;
+        editDataVencimento.value = lancamentoToEdit.dataVencimento;
+        editStatus.value = lancamentoToEdit.status;
 
-    // --- Eventos do Scanner ---
-    openScannerBtn.addEventListener('click', () => {
-        document.getElementById('lancamentos').style.display = 'none'; // Esconde o formulário
-        barcodeScannerSection.classList.remove('scanner-hidden'); // Mostra a seção do scanner
-        startScanner(); // Inicia o scanner automaticamente
-    });
-
-    // Os botões start/stop são controlados principalmente internamente pela lógica do scanner.
-    // startScannerBtn.addEventListener('click', startScanner); // Pode ser útil para reiniciar manualmente após erro
-    stopScannerBtn.addEventListener('click', stopScanner);
-
-    closeScannerBtn.addEventListener('click', () => {
-        stopScanner(); // Garante que o scanner pare
-        barcodeScannerSection.classList.add('scanner-hidden'); // Esconde a seção do scanner
-        document.getElementById('lancamentos').style.display = 'block'; // Mostra o formulário de lançamento
-    });
-
-
-    // --- Inicialização da Aplicação ---
-    function initializeApp() {
-        popularCategorias();
-        popularFiltroMesAno();
-        renderizarLancamentos();
-        // Garante que o formulário de lançamento está visível e o scanner oculto ao carregar a página
-        document.getElementById('lancamentos').style.display = 'block';
-        barcodeScannerSection.classList.add('scanner-hidden');
+        editModal.style.display = 'flex';
     }
 
-    initializeApp();
+    formEditLancamento.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const id = editId.value;
+        const lancamentoIndex = lancamentos.findIndex(lanc => lanc.id === id);
+
+        if (lancamentoIndex === -1) {
+            showFeedback('Erro: Lançamento não encontrado para atualização.', 'error');
+            return;
+        }
+
+        const editDescricaoInput = editDescricao.value.trim();
+        const editValorInput = parseFloat(editValor.value);
+        const editDataVencimentoInput = editDataVencimento.value;
+
+        if (!editCategoria.value || !editDescricaoInput || isNaN(editValorInput) || editValorInput <= 0 || !editDataVencimentoInput) {
+            showFeedback('Por favor, preencha todos os campos do formulário de edição corretamente.', 'warning');
+            return;
+        }
+
+        const previousStatus = lancamentos[lancamentoIndex].status;
+
+        lancamentos[lancamentoIndex].categoria = editCategoria.value;
+        lancamentos[lancamentoIndex].descricao = editDescricaoInput;
+        lancamentos[lancamentoIndex].valor = editValorInput;
+        lancamentos[lancamentoIndex].dataVencimento = editDataVencimentoInput;
+        lancamentos[lancamentoIndex].status = editStatus.value;
+
+        if (lancamentos[lancamentoIndex].status === 'Pago' && !lancamentos[lancamentoIndex].dataPagamento) {
+            lancamentos[lancamentoIndex].dataPagamento = new Date().toISOString().split('T')[0];
+        } else if (lancamentos[lancamentoIndex].status === 'Pendente' && previousStatus === 'Pago') {
+            lancamentos[lancamentoIndex].dataPagamento = null;
+        }
+
+        localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
+        showFeedback('Lançamento atualizado com sucesso!', 'success');
+        editModal.style.display = 'none';
+
+        renderHistorico(mesFiltro.value);
+        renderResumo();
+    });
+
+    function deleteLancamento(id) {
+        // Substituir o `confirm` por um modal customizado para melhor UX em mobile se necessário
+        if (confirm('Tem certeza que deseja excluir este lançamento? Esta ação é irreversível.')) {
+            lancamentos = lancamentos.filter(lanc => lanc.id !== id);
+            localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
+            showFeedback('Lançamento excluído com sucesso!', 'success');
+            renderHistorico(mesFiltro.value);
+            renderResumo();
+        }
+    }
+
+    function markAsPaid(id) {
+        const lancamentoToMark = lancamentos.find(lanc => lanc.id === id);
+        if (lancamentoToMark && lancamentoToMark.status === 'Pendente') {
+            lancamentoToMark.status = 'Pago';
+            lancamentoToMark.dataPagamento = new Date().toISOString().split('T')[0];
+            localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
+            showFeedback('Lançamento baixado (pago) com sucesso!', 'success');
+            renderHistorico(mesFiltro.value);
+            renderResumo();
+        } else if (lancamentoToMark && lancamentoToMark.status === 'Pago') {
+            showFeedback('Este lançamento já está marcado como pago.', 'info');
+        }
+    }
+
+    // --- Eventos de Navegação entre Seções ---
+
+    btnLancamento.addEventListener('click', () => showSection(lancamentoSection));
+    btnResumo.addEventListener('click', () => {
+        showSection(resumoSection);
+        renderResumo();
+    });
+    btnHistorico.addEventListener('click', () => {
+        showSection(historicoSection);
+        const hoje = new Date();
+        const mesAtualFormatado = `${hoje.getFullYear()}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}`;
+        mesFiltro.value = mesAtualFormatado;
+        renderHistorico(mesAtualFormatado);
+    });
+
+    // --- Eventos de Filtro e Impressão do Histórico ---
+
+    btnFiltrarHistorico.addEventListener('click', () => {
+        renderHistorico(mesFiltro.value);
+    });
+
+    btnPrintHistorico.addEventListener('click', () => {
+        const tabelaOriginal = document.getElementById('tabelaHistorico');
+        const tabelaParaImprimir = tabelaOriginal.cloneNode(true);
+        const headers = Array.from(tabelaParaImprimir.querySelectorAll('th'));
+        const rows = Array.from(tabelaParaImprimir.querySelectorAll('tbody tr'));
+
+        let acoesIndex = -1;
+        headers.forEach((th, index) => {
+            if (th.textContent.trim() === 'Ações') {
+                acoesIndex = index;
+            }
+        });
+
+        if (acoesIndex !== -1) {
+            headers[acoesIndex].remove();
+            rows.forEach(row => {
+                if (row.cells[acoesIndex]) {
+                    row.cells[acoesIndex].remove();
+                }
+            });
+        }
+
+        // Remover atributos data-label e estilos de responsividade mobile para impressão limpa
+        tabelaParaImprimir.querySelectorAll('td[data-label], th, tr').forEach(el => {
+            if (el.tagName === 'TD' && el.hasAttribute('data-label')) {
+                el.removeAttribute('data-label');
+                el.style.paddingLeft = '';
+                el.style.textAlign = '';
+            }
+            el.style.display = '';
+            el.style.position = '';
+            el.style.top = '';
+            el.style.left = '';
+            el.style.width = '';
+            el.style.paddingRight = '';
+            el.style.whiteSpace = '';
+            el.style.overflow = '';
+            el.style.textOverflow = '';
+            el.style.marginBottom = '';
+            el.style.border = '';
+            el.style.borderRadius = '';
+            el.style.backgroundColor = '';
+            el.style.boxShadow = '';
+            if (el.tagName === 'TD') {
+                el.classList.add('no-pseudo'); // Adiciona uma classe para desativar o pseudoelemento via CSS
+            }
+        });
+        if (tabelaParaImprimir.querySelector('thead')) {
+            tabelaParaImprimir.querySelector('thead').style.display = '';
+            tabelaParaImprimir.querySelector('thead tr').style.position = '';
+        }
+
+
+        const printWindow = window.open('', '', 'height=600,width=800');
+        printWindow.document.write('<html><head><title>Planilha Financeira</title>');
+        printWindow.document.write('<style>');
+        printWindow.document.write(`
+            @media print {
+                td.no-pseudo::before {
+                    content: none !important;
+                }
+            }
+            body { font-family: 'Lato', sans-serif; margin: 20px; color: #343A40; }
+            h1 { color: #0A387E; font-family: 'Poppins', sans-serif; font-size: 2em;}
+            p { color: #6C757D; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #0A387E; color: white; font-weight: 600; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .status-pago { color: #28a745; font-weight: bold; }
+            .status-pendente { color: #dc3545; font-weight: bold; }
+        `);
+        printWindow.document.write('</style>');
+        printWindow.document.write('</head><body>');
+        printWindow.document.write('<h1>Planilha de Lançamentos Financeiros</h1>');
+        if (mesFiltro.value) {
+            const [ano, mes] = mesFiltro.value.split('-');
+            const dataFiltro = new Date(parseInt(ano), parseInt(mes) - 1, 1);
+            printWindow.document.write(`<p><strong>Mês de Referência:</strong> ${dataFiltro.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}</p>`);
+        } else {
+            printWindow.document.write('<p><strong>Período:</strong> Todos os Lançamentos</p>');
+        }
+        printWindow.document.write(tabelaParaImprimir.outerHTML);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.print();
+    });
+
+    // --- Eventos de Abertura/Fechamento do Modal ---
+    closeButton.addEventListener('click', () => {
+        editModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', (event) => {
+        if (event.target === editModal) {
+            editModal.style.display = 'none';
+        }
+    });
+
+    // --- Inicialização da Aplicação ---
+    const hoje = new Date();
+    const mesAtualFormatado = `${hoje.getFullYear()}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}`;
+    mesFiltro.value = mesAtualFormatado;
+
+    showSection(lancamentoSection);
+    renderHistorico(mesAtualFormatado);
+    renderResumo();
 });
