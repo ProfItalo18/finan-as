@@ -11,10 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const formLancamento = document.getElementById('formLancamento');
     const tipoSelect = document.getElementById('tipo');
     const categoriaSelect = document.getElementById('categoria');
-    const descricaoInput = document.getElementById('descricao'); // Referência direta
-    const valorInput = document.getElementById('valor');         // Referência direta
-    const dataVencimentoInput = document.getElementById('dataVencimento'); // Referência direta
-    const codigoBarrasInput = document.getElementById('codigoBarras'); // Referência ao novo campo
+    const descricaoInput = document.getElementById('descricao');
+    const valorInput = document.getElementById('valor');
+    const dataVencimentoInput = document.getElementById('dataVencimento');
+    const codigoBarrasInput = document.getElementById('codigoBarras'); // Campo de input para o código de barras
+
+    // Novo botão para ativar o leitor via câmera
+    const btnAtivarLeitorCamera = document.getElementById('btnAtivarLeitorCamera');
 
     const tabelaHistoricoBody = document.querySelector('#tabelaHistorico tbody');
     const resumoContainer = document.getElementById('resumoContainer');
@@ -36,6 +39,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Elemento para o feedback do usuário (TOAST)
     const feedbackToast = document.getElementById('feedbackToast');
+
+    // --- Elementos do Scanner de Código de Barras (Câmera) ---
+    const scannerModal = document.getElementById('scannerModal');
+    const closeButtonScanner = scannerModal.querySelector('.close-button-scanner');
+    const videoScanner = document.getElementById('videoScanner');
+    const scannerResult = document.getElementById('scannerResult');
+    const btnCancelarScanner = document.getElementById('btnCancelarScanner');
+
+    // Instância do leitor de código de barras (ZXing-JS)
+    let codeReader = null; // Será inicializado quando o scanner for aberto
+    let isScanning = false; // Flag para controlar o estado do scanner
 
     // --- Armazenamento de Dados ---
     let lancamentos = JSON.parse(localStorage.getItem('lancamentos')) || [];
@@ -64,10 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Funções Auxiliares ---
 
-    /**
-     * Gera um ID alfanumérico de 5 caracteres (letras maiúsculas e números).
-     * @returns {string} O ID gerado.
-     */
     function generateId() {
         const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let result = '';
@@ -77,10 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return result;
     }
 
-    /**
-     * Exibe uma seção específica do site e esconde as outras, com animação.
-     * @param {HTMLElement} sectionToShow - A seção HTML a ser exibida.
-     */
     function showSection(sectionToShow) {
         document.querySelectorAll('section').forEach(section => {
             section.classList.remove('active');
@@ -90,45 +96,33 @@ document.addEventListener('DOMContentLoaded', () => {
         sectionToShow.classList.add('active');
     }
 
-    /**
-     * Exibe uma mensagem de feedback ao usuário usando um toast.
-     * @param {string} message - A mensagem a ser exibida.
-     * @param {string} type - Tipo de mensagem ('success', 'error', 'info', 'warning').
-     */
     function showFeedback(message, type = 'info') {
-        if (!feedbackToast) { // Fallback para alert se o toast não existir por algum motivo
+        if (!feedbackToast) {
             alert(message);
             return;
         }
         feedbackToast.textContent = message;
-        feedbackToast.className = `toast show ${type}`; // Adiciona classes de tipo
+        feedbackToast.className = `toast show ${type}`;
         setTimeout(() => {
             feedbackToast.className = feedbackToast.className.replace("show", "");
-        }, 3000); // Esconde após 3 segundos
+        }, 3000);
     }
 
-    /**
-     * Carrega as categorias no select de categoria com base no tipo selecionado.
-     * @param {HTMLSelectElement} selectElement - O elemento <select> onde as categorias serão carregadas.
-     * @param {string} selectedType - O tipo de transação (receita, despesa, investimento).
-     * @param {string} [selectedCategory=''] - A categoria pré-selecionada (útil para edição).
-     */
     function loadCategories(selectElement, selectedType, selectedCategory = '') {
-        selectElement.innerHTML = '<option value="">Selecione</option>'; // Limpa opções anteriores
+        selectElement.innerHTML = '<option value="">Selecione</option>';
         if (selectedType && categorias[selectedType]) {
             categorias[selectedType].forEach(categoria => {
                 const option = document.createElement('option');
                 option.value = categoria;
                 option.textContent = categoria;
                 if (categoria === selectedCategory) {
-                    option.selected = true; // Pré-seleciona a categoria
+                    option.selected = true;
                 }
                 selectElement.appendChild(option);
             });
         }
     }
 
-    // Evento para carregar categorias no formulário de Novo Lançamento
     tipoSelect.addEventListener('change', () => {
         loadCategories(categoriaSelect, tipoSelect.value);
     });
@@ -136,14 +130,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Lógica de Adição de Lançamento ---
 
     formLancamento.addEventListener('submit', (e) => {
-        e.preventDefault(); // Impede o envio padrão do formulário
+        e.preventDefault();
 
-        // Pega os valores usando as referências diretas
         const descricaoValue = descricaoInput.value.trim();
         const valorValue = parseFloat(valorInput.value);
         const dataVencimentoValue = dataVencimentoInput.value;
 
-        // Validação de entrada
         if (!tipoSelect.value || !categoriaSelect.value || !descricaoValue || isNaN(valorValue) || valorValue <= 0 || !dataVencimentoValue) {
             showFeedback('Por favor, preencha todos os campos obrigatórios (Tipo, Categoria, Descrição, Valor > 0, Data de Vencimento).', 'warning');
             return;
@@ -156,73 +148,144 @@ document.addEventListener('DOMContentLoaded', () => {
             descricao: descricaoValue,
             valor: valorValue,
             dataVencimento: dataVencimentoValue,
-            dataPagamento: null, // Novo lançamento sempre começa sem data de pagamento
-            status: 'Pendente' // Novo lançamento sempre começa como pendente
+            dataPagamento: null,
+            status: 'Pendente'
         };
 
         lancamentos.push(novoLancamento);
-        localStorage.setItem('lancamentos', JSON.stringify(lancamentos)); // Salva no localStorage
+        localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
 
         showFeedback('Lançamento adicionado com sucesso!', 'success');
-        formLancamento.reset(); // Limpa o formulário
-        categoriaSelect.innerHTML = '<option value="">Selecione o tipo primeiro</option>'; // Reseta a categoria do formulário
+        formLancamento.reset();
+        categoriaSelect.innerHTML = '<option value="">Selecione o tipo primeiro</option>';
+        codigoBarrasInput.value = ''; // Limpa o campo de código de barras após o registro
 
-        // Atualiza as visualizações após adicionar um novo lançamento
-        renderHistorico(mesFiltro.value); // Re-renderiza o histórico com o filtro atual
-        renderResumo(); // Re-renderiza o resumo
+        renderHistorico(mesFiltro.value);
+        renderResumo();
     });
 
     // --- Lógica de Leitura de Código de Barras (Leitor USB emulando teclado) ---
-    // Este código será executado se o campo 'codigoBarras' existir no HTML
+    // Este código continua para permitir a digitação ou leitura por leitores USB/Bluetooth
     if (codigoBarrasInput) {
         codigoBarrasInput.addEventListener('keypress', (e) => {
-            // Verifica se a tecla pressionada é 'Enter' (geralmente enviada por leitores de código de barras)
             if (e.key === 'Enter') {
-                e.preventDefault(); // Impede o envio do formulário, se o campo estiver dentro de um form
+                e.preventDefault();
                 const codigoLido = codigoBarrasInput.value.trim();
-                console.log('Código de barras lido:', codigoLido);
-
-                if (codigoLido) {
-                    const produtoEncontrado = produtosMock.find(p => p.codigo === codigoLido);
-
-                    if (produtoEncontrado) {
-                        // Preenche os campos do formulário de lançamento automaticamente
-                        tipoSelect.value = produtoEncontrado.tipo;
-                        // Força a atualização das categorias no select de categoria
-                        loadCategories(categoriaSelect, produtoEncontrado.tipo, produtoEncontrado.categoria);
-                        descricaoInput.value = produtoEncontrado.nome;
-                        valorInput.value = produtoEncontrado.preco.toFixed(2); // Formata para 2 casas decimais
-
-                        showFeedback(`Produto: "${produtoEncontrado.nome}" encontrado e campos preenchidos!`, 'info');
-                    } else {
-                        descricaoInput.value = `Item - Cód: ${codigoLido}`; // Preenche a descrição com o código
-                        valorInput.value = ''; // Limpa o valor para o usuário preencher
-                        showFeedback('Código de barras não encontrado em nossos registros. Por favor, preencha o restante dos dados.', 'warning');
-                    }
-                } else {
-                    showFeedback('Nenhum código de barras lido.', 'warning');
-                }
-
-                codigoBarrasInput.value = ''; // Limpa o campo de código de barras para a próxima leitura
-                descricaoInput.focus(); // Move o foco para a descrição para o usuário continuar o preenchimento
+                handleBarcodeScan(codigoLido); // Reusa a mesma lógica de processamento
             }
         });
     }
 
-    // --- Lógica de Renderização da Tabela de Histórico ---
+    // --- Lógica do Scanner de Código de Barras (Câmera) ---
+    // Função para iniciar o scanner da câmera
+    btnAtivarLeitorCamera.addEventListener('click', () => {
+        if (!codeReader) {
+            // Inicializa o leitor ZXing-JS
+            // BrowserMultiFormatReader é bom para vários tipos de códigos
+            codeReader = new ZXing.BrowserMultiFormatReader();
+        }
+
+        // Abre o modal do scanner
+        scannerModal.style.display = 'flex';
+        scannerResult.textContent = 'Aguardando leitura...';
+        isScanning = true;
+
+        // Lista os dispositivos de vídeo disponíveis (câmeras)
+        codeReader.listVideoInputDevices()
+            .then((videoInputDevices) => {
+                if (videoInputDevices.length > 0) {
+                    // Tenta usar a câmera frontal ou a que tiver a melhor resolução/disponibilidade
+                    // Para dispositivos móveis, 'environment' é a câmera traseira, 'user' é a frontal.
+                    // Podemos tentar a traseira primeiro se houver várias.
+                    const preferredDeviceId = videoInputDevices.find(
+                        device => device.label.toLowerCase().includes('back') || device.kind === 'environment'
+                    )?.deviceId || videoInputDevices[0].deviceId;
+
+                    // Inicia a decodificação do stream de vídeo
+                    codeReader.decodeFromVideoDevice(preferredDeviceId, videoScanner, (result, err) => {
+                        if (isScanning && result) { // Verifica se ainda estamos escaneando e se há um resultado
+                            console.log('Código de barras lido via câmera:', result.text);
+                            scannerResult.textContent = `Lido: ${result.text}`;
+                            handleBarcodeScan(result.text); // Processa o código lido
+                            stopScanner(); // Para o scanner após a leitura bem-sucedida
+                        }
+
+                        // Ignora erros de "not found" (código não detectado) para continuar tentando
+                        if (err && !(err instanceof ZXing.NotFoundException)) {
+                            console.error('Erro no scanner:', err);
+                            scannerResult.textContent = 'Erro ao ler código. Tente novamente.';
+                            showFeedback(`Erro ao ativar leitor: ${err.message}`, 'error');
+                            stopScanner(); // Para o scanner em caso de erro grave
+                        }
+                    });
+                } else {
+                    showFeedback('Nenhuma câmera encontrada para leitura de código de barras.', 'warning');
+                    stopScanner(); // Fecha o modal se não há câmera
+                }
+            })
+            .catch((err) => {
+                console.error('Erro ao acessar dispositivos de vídeo:', err);
+                scannerResult.textContent = 'Erro ao acessar a câmera. Verifique as permissões.';
+                showFeedback(`Não foi possível acessar a câmera. Por favor, conceda permissão: ${err.message}`, 'error');
+                stopScanner(); // Fecha o modal em caso de erro de permissão ou acesso
+            });
+    });
+
+    // Função para parar o scanner da câmera
+    function stopScanner() {
+        if (codeReader && isScanning) {
+            codeReader.reset(); // Reseta o leitor e para o stream da câmera
+            isScanning = false;
+            scannerModal.style.display = 'none'; // Esconde o modal do scanner
+            console.log('Scanner parado.');
+        }
+    }
+
+    // Eventos para fechar/cancelar o scanner
+    closeButtonScanner.addEventListener('click', stopScanner);
+    btnCancelarScanner.addEventListener('click', stopScanner);
+    window.addEventListener('click', (event) => {
+        if (event.target === scannerModal) {
+            stopScanner();
+        }
+    });
 
     /**
-     * Renderiza a tabela de histórico de lançamentos, aplicando filtro de mês.
-     * Inclui atributos `data-label` para responsividade em mobile.
-     * @param {string|null} filtroMes - Mês no formato 'YYYY-MM' para filtrar (ex: '2025-07'), ou null para todos.
+     * Lógica unificada para processar um código de barras lido (seja por câmera ou digitação).
+     * @param {string} codigoLido - O código de barras que foi lido/digitado.
      */
+    function handleBarcodeScan(codigoLido) {
+        if (!codigoLido) {
+            showFeedback('Código de barras vazio.', 'warning');
+            return;
+        }
+        const produtoEncontrado = produtosMock.find(p => p.codigo === codigoLido);
+
+        if (produtoEncontrado) {
+            tipoSelect.value = produtoEncontrado.tipo;
+            loadCategories(categoriaSelect, produtoEncontrado.tipo, produtoEncontrado.categoria);
+            descricaoInput.value = produtoEncontrado.nome;
+            valorInput.value = produtoEncontrado.preco.toFixed(2);
+
+            showFeedback(`Produto "${produtoEncontrado.nome}" encontrado e campos preenchidos!`, 'info');
+        } else {
+            descricaoInput.value = `Item - Cód: ${codigoLido}`;
+            valorInput.value = ''; // Limpa o valor para o usuário preencher
+            showFeedback('Código de barras não encontrado nos registros. Ajuste a descrição e outros campos.', 'warning');
+        }
+        codigoBarrasInput.value = codigoLido; // Preenche o campo de input visível com o código lido
+        descricaoInput.focus(); // Move o foco para a descrição para o usuário continuar o preenchimento
+    }
+
+
+    // --- Lógica de Renderização da Tabela de Histórico ---
+
     function renderHistorico(filtroMes = null) {
-        tabelaHistoricoBody.innerHTML = ''; // Limpa a tabela antes de renderizar
+        tabelaHistoricoBody.innerHTML = '';
 
         let lancamentosFiltrados = lancamentos;
         if (filtroMes) {
             lancamentosFiltrados = lancamentos.filter(lanc => {
-                // Adiciona 'T00:00:00' para garantir que a data seja interpretada como local e evitar problemas de fuso horário
                 const dataVencimento = new Date(lanc.dataVencimento + 'T00:00:00');
                 const [anoFiltro, mesFiltroNum] = filtroMes.split('-');
                 return dataVencimento.getFullYear() === parseInt(anoFiltro) &&
@@ -230,17 +293,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Ordena os lançamentos por data de vencimento (crescente), e depois por status (pendente primeiro)
         lancamentosFiltrados.sort((a, b) => {
             const dateA = new Date(a.dataVencimento);
             const dateB = new Date(b.dataVencimento);
-            if (dateA.getTime() !== dateB.getTime()) { // Compara timestamps para datas
+            if (dateA.getTime() !== dateB.getTime()) {
                 return dateA - dateB;
             }
-            // Se as datas são iguais, pendentes vêm antes dos pagos
             if (a.status === 'Pendente' && b.status === 'Pago') return -1;
             if (a.status === 'Pago' && b.status === 'Pendente') return 1;
-            return 0; // Se tudo igual, mantém a ordem
+            return 0;
         });
 
         if (lancamentosFiltrados.length === 0) {
@@ -250,7 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         lancamentosFiltrados.forEach(lanc => {
             const row = tabelaHistoricoBody.insertRow();
-            row.dataset.id = lanc.id; // Armazena o ID no atributo dataset da linha
+            row.dataset.id = lanc.id;
 
             const statusClass = lanc.status === 'Pago' ? 'status-pago' : 'status-pendente';
             const dataPagamentoFormatada = lanc.dataPagamento ? new Date(lanc.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A';
@@ -275,14 +336,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Lógica de Renderização do Resumo Mensal ---
 
-    /**
-     * Renderiza o resumo financeiro para o mês atual, detalhando por categorias e investimentos.
-     */
     function renderResumo() {
-        resumoContainer.innerHTML = ''; // Limpa o container antes de renderizar
+        resumoContainer.innerHTML = '';
         const dataAtual = new Date();
         const anoAtual = dataAtual.getFullYear();
-        const mesAtual = dataAtual.getMonth(); // 0-11 (Janeiro = 0)
+        const mesAtual = dataAtual.getMonth();
 
         const lancamentosDoMes = lancamentos.filter(lanc => {
             const dataVencimento = new Date(lanc.dataVencimento + 'T00:00:00');
@@ -305,7 +363,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const saldoMensal = totalReceitas - totalDespesas;
 
-        // HTML do resumo principal
         resumoContainer.innerHTML = `
             <h3>Mês de ${dataAtual.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}</h3>
             <p><strong>Total de Receitas:</strong> ${totalReceitas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
@@ -325,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const detalhesReceitas = document.getElementById('detalhesReceitas');
         const detalhesInvestimentos = document.getElementById('detalhesInvestimentos');
 
-        // Agrupar despesas por categoria (considera todas as despesas do mês, pagas ou não)
         const despesasPorCategoria = {};
         lancamentosDoMes.filter(l => l.tipo === 'despesa').forEach(lanc => {
             despesasPorCategoria[lanc.categoria] = (despesasPorCategoria[lanc.categoria] || 0) + lanc.valor;
@@ -333,7 +389,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Object.keys(despesasPorCategoria).length === 0) {
             detalhesDespesas.innerHTML = '<li>Nenhuma despesa registrada neste mês.</li>';
         } else {
-            // Ordena as categorias por valor (do maior para o menor)
             Object.entries(despesasPorCategoria).sort(([, a], [, b]) => b - a).forEach(([categoria, valor]) => {
                 const li = document.createElement('li');
                 li.textContent = `${categoria}: ${valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
@@ -341,7 +396,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Agrupar receitas por categoria (considera todas as receitas do mês, recebidas ou não)
         const receitasPorCategoria = {};
         lancamentosDoMes.filter(l => l.tipo === 'receita').forEach(lanc => {
             receitasPorCategoria[lanc.categoria] = (receitasPorCategoria[lanc.categoria] || 0) + lanc.valor;
@@ -349,7 +403,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Object.keys(receitasPorCategoria).length === 0) {
             detalhesReceitas.innerHTML = '<li>Nenhuma receita registrada neste mês.</li>';
         } else {
-            // Ordena as categorias por valor (do maior para o menor)
             Object.entries(receitasPorCategoria).sort(([, a], [, b]) => b - a).forEach(([categoria, valor]) => {
                 const li = document.createElement('li');
                 li.textContent = `${categoria}: ${valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
@@ -357,12 +410,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Detalhar investimentos
         const investimentosDoMes = lancamentosDoMes.filter(l => l.tipo === 'investimento');
         if (investimentosDoMes.length === 0) {
             detalhesInvestimentos.innerHTML = '<li>Nenhum investimento registrado neste mês.</li>';
         } else {
-            // Ordena os investimentos por valor (do maior para o menor)
             investimentosDoMes.sort((a, b) => b.valor - a.valor).forEach(lanc => {
                 const li = document.createElement('li');
                 li.textContent = `${lanc.categoria} - ${lanc.descricao}: ${lanc.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
@@ -373,12 +424,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Lógica de Ações da Tabela (Editar, Excluir, Baixar) ---
 
-    // Delegação de eventos para os botões dentro da tabela de histórico
     tabelaHistoricoBody.addEventListener('click', (e) => {
         const target = e.target;
-        const id = target.dataset.id; // Pega o ID do atributo data-id do botão
+        const id = target.dataset.id;
 
-        if (!id) return; // Garante que o clique foi em um botão com ID
+        if (!id) return;
 
         if (target.classList.contains('editar')) {
             editLancamento(id);
@@ -389,10 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    /**
-     * Preenche o modal de edição com os dados do lançamento e o exibe.
-     * @param {string} id - O ID do lançamento a ser editado.
-     */
     function editLancamento(id) {
         const lancamentoToEdit = lancamentos.find(lanc => lanc.id === id);
         if (!lancamentoToEdit) {
@@ -400,24 +446,19 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Preenche os campos do formulário no modal
         editId.value = lancamentoToEdit.id;
-        editTipo.value = lancamentoToEdit.tipo; // Tipo é apenas para exibição, desabilitado no HTML
-        loadCategories(editCategoria, lancamentoToEdit.tipo, lancamentoToEdit.categoria); // Carrega e pré-seleciona a categoria
+        editTipo.value = lancamentoToEdit.tipo;
+        loadCategories(editCategoria, lancamentoToEdit.tipo, lancamentoToEdit.categoria);
         editDescricao.value = lancamentoToEdit.descricao;
         editValor.value = lancamentoToEdit.valor;
         editDataVencimento.value = lancamentoToEdit.dataVencimento;
         editStatus.value = lancamentoToEdit.status;
 
-        editModal.style.display = 'flex'; // Torna o modal visível (display: flex)
+        editModal.style.display = 'flex';
     }
 
-    /**
-     * Salva as alterações de um lançamento editado do formulário do modal.
-     * @param {Event} e - O evento de submit do formulário.
-     */
     formEditLancamento.addEventListener('submit', (e) => {
-        e.preventDefault(); // Impede o envio padrão do formulário
+        e.preventDefault();
 
         const id = editId.value;
         const lancamentoIndex = lancamentos.findIndex(lanc => lanc.id === id);
@@ -431,69 +472,52 @@ document.addEventListener('DOMContentLoaded', () => {
         const editValorValue = parseFloat(editValor.value);
         const editDataVencimentoValue = editDataVencimento.value;
 
-        // Validação de entrada do formulário de edição
         if (!editCategoria.value || !editDescricaoValue || isNaN(editValorValue) || editValorValue <= 0 || !editDataVencimentoValue) {
             showFeedback('Por favor, preencha todos os campos do formulário de edição corretamente.', 'warning');
             return;
         }
 
-        // Armazena o status anterior para a lógica de dataPagamento
         const previousStatus = lancamentos[lancamentoIndex].status;
 
-        // Atualiza os dados do lançamento no array
         lancamentos[lancamentoIndex].categoria = editCategoria.value;
         lancamentos[lancamentoIndex].descricao = editDescricaoValue;
         lancamentos[lancamentoIndex].valor = editValorValue;
         lancamentos[lancamentoIndex].dataVencimento = editDataVencimentoValue;
         lancamentos[lancamentoIndex].status = editStatus.value;
 
-        // Lógica para dataPagamento:
-        // Se o status for alterado para 'Pago' E a dataPagamento estiver nula, preenche com a data atual.
         if (lancamentos[lancamentoIndex].status === 'Pago' && !lancamentos[lancamentoIndex].dataPagamento) {
-            lancamentos[lancamentoIndex].dataPagamento = new Date().toISOString().split('T')[0]; // Pega a data atual (YYYY-MM-DD)
-        }
-        // Se o status voltar para 'Pendente' E o status anterior era 'Pago', a data de pagamento deve ser resetada.
-        else if (lancamentos[lancamentoIndex].status === 'Pendente' && previousStatus === 'Pago') {
+            lancamentos[lancamentoIndex].dataPagamento = new Date().toISOString().split('T')[0];
+        } else if (lancamentos[lancamentoIndex].status === 'Pendente' && previousStatus === 'Pago') {
             lancamentos[lancamentoIndex].dataPagamento = null;
         }
 
-        localStorage.setItem('lancamentos', JSON.stringify(lancamentos)); // Salva no localStorage
+        localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
         showFeedback('Lançamento atualizado com sucesso!', 'success');
-        editModal.style.display = 'none'; // Esconde o modal
+        editModal.style.display = 'none';
 
-        // Re-renderiza as seções afetadas para refletir as mudanças
-        renderHistorico(mesFiltro.value); // Re-renderiza o histórico com o filtro atual
-        renderResumo(); // Re-renderiza o resumo
+        renderHistorico(mesFiltro.value);
+        renderResumo();
     });
 
-    /**
-     * Exclui um lançamento do array e do localStorage após confirmação.
-     * @param {string} id - O ID do lançamento a ser excluído.
-     */
     function deleteLancamento(id) {
-        // Preferencialmente, substituir o `confirm` por um modal customizado para melhor UX em mobile
         if (confirm('Tem certeza que deseja excluir este lançamento? Esta ação é irreversível.')) {
-            lancamentos = lancamentos.filter(lanc => lanc.id !== id); // Filtra o lançamento a ser excluído
-            localStorage.setItem('lancamentos', JSON.stringify(lancamentos)); // Salva o array atualizado
+            lancamentos = lancamentos.filter(lanc => lanc.id !== id);
+            localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
             showFeedback('Lançamento excluído com sucesso!', 'success');
-            renderHistorico(mesFiltro.value); // Re-renderiza o histórico com o filtro atual
-            renderResumo(); // Re-renderiza o resumo
+            renderHistorico(mesFiltro.value);
+            renderResumo();
         }
     }
 
-    /**
-     * Marca um lançamento como 'Pago' e registra a data de pagamento atual.
-     * @param {string} id - O ID do lançamento a ser marcado como pago.
-     */
     function markAsPaid(id) {
         const lancamentoToMark = lancamentos.find(lanc => lanc.id === id);
         if (lancamentoToMark && lancamentoToMark.status === 'Pendente') {
             lancamentoToMark.status = 'Pago';
-            lancamentoToMark.dataPagamento = new Date().toISOString().split('T')[0]; // Pega a data atual (YYYY-MM-DD)
+            lancamentoToMark.dataPagamento = new Date().toISOString().split('T')[0];
             localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
             showFeedback('Lançamento baixado (pago) com sucesso!', 'success');
-            renderHistorico(mesFiltro.value); // Re-renderiza o histórico com o filtro atual
-            renderResumo(); // Re-renderiza o resumo
+            renderHistorico(mesFiltro.value);
+            renderResumo();
         } else if (lancamentoToMark && lancamentoToMark.status === 'Pago') {
             showFeedback('Este lançamento já está marcado como pago.', 'info');
         }
@@ -504,31 +528,28 @@ document.addEventListener('DOMContentLoaded', () => {
     btnLancamento.addEventListener('click', () => showSection(lancamentoSection));
     btnResumo.addEventListener('click', () => {
         showSection(resumoSection);
-        renderResumo(); // Garante que o resumo esteja sempre atualizado ao ser acessado
+        renderResumo();
     });
     btnHistorico.addEventListener('click', () => {
         showSection(historicoSection);
-        // Define o mês atual como filtro padrão ao abrir o histórico ou recarregar
         const hoje = new Date();
         const mesAtualFormatado = `${hoje.getFullYear()}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}`;
-        mesFiltro.value = mesAtualFormatado; // Preenche o campo de mês do filtro
-        renderHistorico(mesAtualFormatado); // Renderiza com o mês atual
+        mesFiltro.value = mesAtualFormatado;
+        renderHistorico(mesAtualFormatado);
     });
 
     // --- Eventos de Filtro e Impressão do Histórico ---
 
     btnFiltrarHistorico.addEventListener('click', () => {
-        renderHistorico(mesFiltro.value); // Filtra a tabela pelo mês selecionado
+        renderHistorico(mesFiltro.value);
     });
 
     btnPrintHistorico.addEventListener('click', () => {
-        // Clonar a tabela para remover colunas indesejadas na impressão e ajustar para responsividade
         const tabelaOriginal = document.getElementById('tabelaHistorico');
-        const tabelaParaImprimir = tabelaOriginal.cloneNode(true); // Clone profundo de toda a tabela
+        const tabelaParaImprimir = tabelaOriginal.cloneNode(true);
         const headers = Array.from(tabelaParaImprimir.querySelectorAll('th'));
         const rows = Array.from(tabelaParaImprimir.querySelectorAll('tbody tr'));
 
-        // Encontrar o índice da coluna "Ações" e remover
         let acoesIndex = -1;
         headers.forEach((th, index) => {
             if (th.textContent.trim() === 'Ações') {
@@ -537,41 +558,34 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (acoesIndex !== -1) {
-            headers[acoesIndex].remove(); // Remove o cabeçalho "Ações"
+            headers[acoesIndex].remove();
             rows.forEach(row => {
                 if (row.cells[acoesIndex]) {
-                    row.cells[acoesIndex].remove(); // Remove a célula "Ações" de cada linha
+                    row.cells[acoesIndex].remove();
                 }
             });
         }
 
-        // Remover atributos data-label e estilos de responsividade mobile para impressão limpa
-        // Itera sobre todos os elementos td, th, tr dentro da tabela clonada
-        tabelaParaImprimir.querySelectorAll('td, th, tr').forEach(el => { // Agora itera sobre td, th, tr
+        tabelaParaImprimir.querySelectorAll('td, th, tr').forEach(el => {
             if (el.tagName === 'TD' && el.hasAttribute('data-label')) {
                 el.removeAttribute('data-label');
             }
-            // Remove estilos de display, position, etc. que foram adicionados para mobile
-            el.style.cssText = ''; // Limpa todos os estilos inline para a impressão
+            el.style.cssText = '';
             if (el.tagName === 'TD') {
-                el.classList.add('no-pseudo'); // Adiciona uma classe para desativar o pseudoelemento via CSS
+                el.classList.add('no-pseudo');
             }
         });
 
-        // Específico para o thead, caso tenha sido escondido ou modificado para mobile
         if (tabelaParaImprimir.querySelector('thead')) {
-            tabelaParaImprimir.querySelector('thead').style.display = ''; // Garante que thead esteja visível
+            tabelaParaImprimir.querySelector('thead').style.display = '';
         }
 
 
-        // Abrir nova janela para impressão
         const printWindow = window.open('', '', 'height=600,width=800');
         printWindow.document.write('<html><head><title>Planilha Financeira</title>');
         printWindow.document.write('<style>');
-        // Adiciona estilos para a impressão
         printWindow.document.write(`
             @media print {
-                /* Adiciona uma classe para garantir que o pseudoelemento não apareça na impressão */
                 td.no-pseudo::before {
                     content: none !important;
                 }
@@ -602,25 +616,23 @@ document.addEventListener('DOMContentLoaded', () => {
         printWindow.print();
     });
 
-    // --- Eventos de Abertura/Fechamento do Modal ---
+    // --- Eventos de Abertura/Fechamento do Modal de Edição ---
     closeButton.addEventListener('click', () => {
-        editModal.style.display = 'none'; // Oculta o modal ao clicar no 'x'
+        editModal.style.display = 'none';
     });
 
-    // Fecha o modal se clicar na área escura fora do conteúdo dele
     window.addEventListener('click', (event) => {
-        if (event.target === editModal) { // Verifica se o clique foi no fundo escurecido do modal
+        if (event.target === editModal) {
             editModal.style.display = 'none';
         }
     });
 
     // --- Inicialização da Aplicação ---
-    // Define o mês atual no campo de filtro ao carregar a página
     const hoje = new Date();
     const mesAtualFormatado = `${hoje.getFullYear()}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}`;
     mesFiltro.value = mesAtualFormatado;
 
-    showSection(lancamentoSection); // Exibe a seção de "Novo Lançamento" por padrão
-    renderHistorico(mesAtualFormatado); // Renderiza o histórico inicial com o filtro do mês atual
-    renderResumo(); // Renderiza o resumo inicial
+    showSection(lancamentoSection);
+    renderHistorico(mesAtualFormatado);
+    renderResumo();
 });

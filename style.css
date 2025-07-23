@@ -134,23 +134,29 @@ h2 {
     margin-top: 0;
 }
 
-/* Estilos dos Grupos de Formulário */
+/* Estilos dos Grupos de Formulário (Revisado para o campo de código de barras) */
 .form-group {
     margin-bottom: var(--spacing-sm);
+    display: flex; /* Permite alinhar itens lado a lado */
+    flex-wrap: wrap; /* Permite quebrar linha em telas menores */
+    align-items: flex-end; /* Alinha a base dos elementos */
+    gap: var(--spacing-xs); /* Espaçamento entre os elementos flex */
 }
 
 .form-group label {
-    display: block;
+    display: block; /* Garante que o label ocupe sua própria linha */
     margin-bottom: var(--spacing-xs);
     font-weight: 700;
     color: var(--text-color);
+    flex-basis: 100%; /* Ocupa 100% da largura disponível para o label */
 }
 
 .form-group input[type="text"],
 .form-group input[type="number"],
 .form-group input[type="date"],
 .form-group select {
-    width: 100%;
+    flex-grow: 1; /* Permite que o input cresça para preencher o espaço */
+    min-width: 150px; /* Largura mínima para o input */
     padding: var(--spacing-xs) var(--spacing-sm);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
@@ -168,6 +174,30 @@ h2 {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(10, 56, 126, 0.2);
 }
+
+/* Estilos do Botão "Ativar Leitor (Câmera)" */
+#btnAtivarLeitorCamera {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 0.95em; /* Ligeiramente menor para se encaixar melhor */
+    font-weight: 600;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: 0 2px 5px var(--shadow-light);
+    flex-shrink: 0; /* Impede que ele encolha */
+    white-space: nowrap; /* Não quebra o texto do botão */
+    margin-bottom: 0; /* Alinha com a parte inferior do input */
+}
+
+#btnAtivarLeitorCamera:hover {
+    background-color: var(--primary-dark-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--shadow-medium);
+}
+
 
 /* Estilos do Botão de Envio do Formulário */
 form button[type="submit"] {
@@ -382,7 +412,7 @@ form button[type="submit"]:hover {
     font-weight: 700;
 }
 
-/* Estilos para o Modal de Edição (Pop-up) */
+/* Estilos para o Modal (Base para Modal de Edição e Scanner) */
 .modal {
     display: none; /* **CRÍTICO**: Escondido por padrão, só aparece via JS */
     position: fixed;
@@ -438,7 +468,6 @@ form button[type="submit"]:hover {
 .toast {
     visibility: hidden; /* Oculto por padrão */
     min-width: 250px;
-    /* margin-left: -125px; Removido para simplificar centralização com flexbox em mobile */
     background-color: var(--primary-dark-color);
     color: #fff;
     text-align: center;
@@ -467,6 +496,69 @@ form button[type="submit"]:hover {
 .toast.info { background-color: var(--primary-color); }
 
 
+/* --- Estilos para o NOVO MODAL DO SCANNER (#scannerModal) --- */
+#scannerModal .modal-content {
+    max-width: 700px; /* Um pouco maior que o modal padrão para a visualização da câmera */
+    text-align: center; /* Centraliza o conteúdo dentro do modal */
+}
+
+#videoScanner {
+    width: 100%;
+    height: auto; /* Mantém a proporção do vídeo */
+    max-height: 400px; /* Limita a altura máxima para não ficar muito grande em telas grandes */
+    background-color: #000; /* Fundo preto enquanto a câmera não carrega */
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    object-fit: contain; /* Garante que o vídeo seja contido na área sem corte */
+    margin-bottom: var(--spacing-sm); /* Espaçamento abaixo do vídeo */
+}
+
+#scannerResult {
+    font-size: 1.1em;
+    color: var(--primary-color);
+    font-weight: bold;
+    margin-top: var(--spacing-xs);
+}
+
+#btnCancelarScanner {
+    margin-top: var(--spacing-md);
+    background-color: var(--danger-color); /* Botão de cancelar em vermelho */
+    color: white;
+    border: none;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 700;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: 0 3px 8px rgba(220, 53, 69, 0.3);
+}
+
+#btnCancelarScanner:hover {
+    background-color: #c82333;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4);
+}
+
+/* Estilo do botão de fechar (X) para o scanner modal (compartilha com o modal de edição) */
+.close-button-scanner {
+    color: var(--text-light-color);
+    font-size: 32px;
+    font-weight: 300;
+    cursor: pointer;
+    position: absolute;
+    top: var(--spacing-xs);
+    right: var(--spacing-sm);
+    transition: color 0.2s ease;
+}
+
+.close-button-scanner:hover,
+.close-button-scanner:focus {
+    color: var(--danger-color);
+    text-decoration: none;
+}
+
+
 /* Responsividade para Telas Menores (Mobile-first) */
 @media (max-width: 768px) {
     header h1 {
@@ -484,6 +576,24 @@ form button[type="submit"]:hover {
         padding: var(--spacing-sm);
         margin: var(--spacing-sm) auto;
     }
+
+    /* Ajustes específicos para o form-group em telas menores */
+    .form-group {
+        flex-direction: column; /* Coloca os itens em coluna */
+        align-items: stretch; /* Estica para preencher a largura */
+    }
+    .form-group label,
+    .form-group input,
+    .form-group select,
+    #btnAtivarLeitorCamera {
+        width: 100%; /* Garante que cada item ocupe a largura total */
+        margin-bottom: var(--spacing-xs); /* Adiciona margem entre eles */
+    }
+    #btnAtivarLeitorCamera {
+        margin-top: 0; /* Remove margem superior se houver, para alinhar melhor */
+    }
+
+
     #tabelaHistorico th,
     #tabelaHistorico td {
         font-size: 0.85em;
