@@ -205,8 +205,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Evento para ativar o leitor da câmera
     btnAtivarLeitorCamera.addEventListener('click', () => {
+        // Inicializa o leitor ZXing-JS se ainda não foi
         if (!codeReader) {
-            // Inicializa o leitor ZXing-JS apenas uma vez
             codeReader = new ZXing.BrowserMultiFormatReader();
         }
 
