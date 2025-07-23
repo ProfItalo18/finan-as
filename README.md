@@ -1,4 +1,4 @@
-# 💰 Gestão Financeira Minimalista
+# 💰 Gestão Financeira
 
 Um site de gestão financeira pessoal, inovador e minimalista, desenvolvido puramente com HTML, CSS e JavaScript. Mantenha suas finanças organizadas, controle receitas, despesas e investimentos diretamente no seu navegador, com total privacidade!
 
