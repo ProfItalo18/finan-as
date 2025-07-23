@@ -11,6 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const formLancamento = document.getElementById('formLancamento');
     const tipoSelect = document.getElementById('tipo');
     const categoriaSelect = document.getElementById('categoria');
+    const descricaoInput = document.getElementById('descricao'); // Referência direta
+    const valorInput = document.getElementById('valor');         // Referência direta
+    const dataVencimentoInput = document.getElementById('dataVencimento'); // Referência direta
+    const codigoBarrasInput = document.getElementById('codigoBarras'); // Referência ao novo campo
+
     const tabelaHistoricoBody = document.querySelector('#tabelaHistorico tbody');
     const resumoContainer = document.getElementById('resumoContainer');
     const mesFiltro = document.getElementById('mesFiltro');
@@ -22,15 +27,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeButton = editModal.querySelector('.close-button');
     const formEditLancamento = document.getElementById('formEditLancamento');
     const editId = document.getElementById('editId');
-    const editTipo = document.getElementById('editTipo'); // Este select está desabilitado no HTML, apenas para exibição
+    const editTipo = document.getElementById('editTipo');
     const editCategoria = document.getElementById('editCategoria');
     const editDescricao = document.getElementById('editDescricao');
     const editValor = document.getElementById('editValor');
     const editDataVencimento = document.getElementById('editDataVencimento');
     const editStatus = document.getElementById('editStatus');
 
+    // Elemento para o feedback do usuário (TOAST)
+    const feedbackToast = document.getElementById('feedbackToast');
+
     // --- Armazenamento de Dados ---
-    // Carrega lançamentos do localStorage ou inicializa array vazio
     let lancamentos = JSON.parse(localStorage.getItem('lancamentos')) || [];
 
     // --- Categorias Pré-definidas ---
@@ -39,6 +46,21 @@ document.addEventListener('DOMContentLoaded', () => {
         despesa: ['Moradia', 'Alimentação', 'Transporte', 'Lazer', 'Educação', 'Saúde', 'Contas', 'Vestuário', 'Cuidados Pessoais', 'Outras Despesas'],
         investimento: ['Ações', 'Fundos de Investimento', 'Renda Fixa', 'Criptomoedas', 'Previdência Privada', 'Imóveis', 'Poupança', 'Outros Investimentos']
     };
+
+    // --- Produtos Mock (para simular leitura de código de barras) ---
+    const produtosMock = [
+        { codigo: '7891234567890', nome: 'Pacote de Arroz 5kg', preco: 25.50, categoria: 'Alimentação', tipo: 'despesa' },
+        { codigo: '9876543210987', nome: 'Livro "Dom Casmurro"', preco: 45.00, categoria: 'Educação', tipo: 'despesa' },
+        { codigo: '1122334455667', nome: 'Serviço de Manutenção - PC', preco: 150.00, categoria: 'Outras Despesas', tipo: 'despesa' },
+        { codigo: '2233445566778', nome: 'Camiseta Básica', preco: 39.90, categoria: 'Vestuário', tipo: 'despesa' },
+        { codigo: '3344556677889', nome: 'Leite Integral 1L', preco: 5.20, categoria: 'Alimentação', tipo: 'despesa' },
+        { codigo: '4455667788990', nome: 'Consulta Médica', preco: 200.00, categoria: 'Saúde', tipo: 'despesa' },
+        { codigo: '5566778899001', nome: 'Mensalidade Academia', preco: 80.00, categoria: 'Lazer', tipo: 'despesa' },
+        { codigo: '6677889900112', nome: 'Licença de Software', preco: 120.00, categoria: 'Educação', tipo: 'despesa' },
+        { codigo: '7788990011223', nome: 'Rendimento CDB', preco: 75.00, categoria: 'Rendimento de Investimentos', tipo: 'receita' },
+        { codigo: '8899001122334', nome: 'Devolução de Compra', preco: 55.00, categoria: 'Reembolso', tipo: 'receita' },
+    ];
+
 
     // --- Funções Auxiliares ---
 
@@ -69,18 +91,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Exibe uma mensagem de feedback ao usuário (substitui alert() para futuras melhorias de UX).
+     * Exibe uma mensagem de feedback ao usuário usando um toast.
      * @param {string} message - A mensagem a ser exibida.
      * @param {string} type - Tipo de mensagem ('success', 'error', 'info', 'warning').
      */
     function showFeedback(message, type = 'info') {
-        // Para uma UX mais polida, substituir `alert()` por um toast/snackbar ou modal customizado.
-        // Ex: usando um div temporário, SweetAlert2, etc.
-        console.log(`[${type.toUpperCase()}] ${message}`); // Para debug no console
-        alert(message); // Mantido por simplicidade para esta revisão
+        if (!feedbackToast) { // Fallback para alert se o toast não existir por algum motivo
+            alert(message);
+            return;
+        }
+        feedbackToast.textContent = message;
+        feedbackToast.className = `toast show ${type}`; // Adiciona classes de tipo
+        setTimeout(() => {
+            feedbackToast.className = feedbackToast.className.replace("show", "");
+        }, 3000); // Esconde após 3 segundos
     }
-
-    // --- Lógica de Carregamento de Categorias ---
 
     /**
      * Carrega as categorias no select de categoria com base no tipo selecionado.
@@ -113,13 +138,14 @@ document.addEventListener('DOMContentLoaded', () => {
     formLancamento.addEventListener('submit', (e) => {
         e.preventDefault(); // Impede o envio padrão do formulário
 
-        const descricaoInput = document.getElementById('descricao').value.trim();
-        const valorInput = parseFloat(document.getElementById('valor').value);
-        const dataVencimentoInput = document.getElementById('dataVencimento').value;
+        // Pega os valores usando as referências diretas
+        const descricaoValue = descricaoInput.value.trim();
+        const valorValue = parseFloat(valorInput.value);
+        const dataVencimentoValue = dataVencimentoInput.value;
 
         // Validação de entrada
-        if (!tipoSelect.value || !categoriaSelect.value || !descricaoInput || isNaN(valorInput) || valorInput <= 0 || !dataVencimentoInput) {
-            showFeedback('Por favor, preencha todos os campos corretamente: Tipo, Categoria, Descrição, Valor (maior que zero) e Data de Vencimento.', 'warning');
+        if (!tipoSelect.value || !categoriaSelect.value || !descricaoValue || isNaN(valorValue) || valorValue <= 0 || !dataVencimentoValue) {
+            showFeedback('Por favor, preencha todos os campos obrigatórios (Tipo, Categoria, Descrição, Valor > 0, Data de Vencimento).', 'warning');
             return;
         }
 
@@ -127,9 +153,9 @@ document.addEventListener('DOMContentLoaded', () => {
             id: generateId(),
             tipo: tipoSelect.value,
             categoria: categoriaSelect.value,
-            descricao: descricaoInput,
-            valor: valorInput,
-            dataVencimento: dataVencimentoInput,
+            descricao: descricaoValue,
+            valor: valorValue,
+            dataVencimento: dataVencimentoValue,
             dataPagamento: null, // Novo lançamento sempre começa sem data de pagamento
             status: 'Pendente' // Novo lançamento sempre começa como pendente
         };
@@ -145,6 +171,43 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistorico(mesFiltro.value); // Re-renderiza o histórico com o filtro atual
         renderResumo(); // Re-renderiza o resumo
     });
+
+    // --- Lógica de Leitura de Código de Barras (Leitor USB emulando teclado) ---
+    // Este código será executado se o campo 'codigoBarras' existir no HTML
+    if (codigoBarrasInput) {
+        codigoBarrasInput.addEventListener('keypress', (e) => {
+            // Verifica se a tecla pressionada é 'Enter' (geralmente enviada por leitores de código de barras)
+            if (e.key === 'Enter') {
+                e.preventDefault(); // Impede o envio do formulário, se o campo estiver dentro de um form
+                const codigoLido = codigoBarrasInput.value.trim();
+                console.log('Código de barras lido:', codigoLido);
+
+                if (codigoLido) {
+                    const produtoEncontrado = produtosMock.find(p => p.codigo === codigoLido);
+
+                    if (produtoEncontrado) {
+                        // Preenche os campos do formulário de lançamento automaticamente
+                        tipoSelect.value = produtoEncontrado.tipo;
+                        // Força a atualização das categorias no select de categoria
+                        loadCategories(categoriaSelect, produtoEncontrado.tipo, produtoEncontrado.categoria);
+                        descricaoInput.value = produtoEncontrado.nome;
+                        valorInput.value = produtoEncontrado.preco.toFixed(2); // Formata para 2 casas decimais
+
+                        showFeedback(`Produto: "${produtoEncontrado.nome}" encontrado e campos preenchidos!`, 'info');
+                    } else {
+                        descricaoInput.value = `Item - Cód: ${codigoLido}`; // Preenche a descrição com o código
+                        valorInput.value = ''; // Limpa o valor para o usuário preencher
+                        showFeedback('Código de barras não encontrado em nossos registros. Por favor, preencha o restante dos dados.', 'warning');
+                    }
+                } else {
+                    showFeedback('Nenhum código de barras lido.', 'warning');
+                }
+
+                codigoBarrasInput.value = ''; // Limpa o campo de código de barras para a próxima leitura
+                descricaoInput.focus(); // Move o foco para a descrição para o usuário continuar o preenchimento
+            }
+        });
+    }
 
     // --- Lógica de Renderização da Tabela de Histórico ---
 
@@ -364,12 +427,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const editDescricaoInput = editDescricao.value.trim();
-        const editValorInput = parseFloat(editValor.value);
-        const editDataVencimentoInput = editDataVencimento.value;
+        const editDescricaoValue = editDescricao.value.trim();
+        const editValorValue = parseFloat(editValor.value);
+        const editDataVencimentoValue = editDataVencimento.value;
 
         // Validação de entrada do formulário de edição
-        if (!editCategoria.value || !editDescricaoInput || isNaN(editValorInput) || editValorInput <= 0 || !editDataVencimentoInput) {
+        if (!editCategoria.value || !editDescricaoValue || isNaN(editValorValue) || editValorValue <= 0 || !editDataVencimentoValue) {
             showFeedback('Por favor, preencha todos os campos do formulário de edição corretamente.', 'warning');
             return;
         }
@@ -379,9 +442,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Atualiza os dados do lançamento no array
         lancamentos[lancamentoIndex].categoria = editCategoria.value;
-        lancamentos[lancamentoIndex].descricao = editDescricaoInput;
-        lancamentos[lancamentoIndex].valor = editValorInput;
-        lancamentos[lancamentoIndex].dataVencimento = editDataVencimentoInput;
+        lancamentos[lancamentoIndex].descricao = editDescricaoValue;
+        lancamentos[lancamentoIndex].valor = editValorValue;
+        lancamentos[lancamentoIndex].dataVencimento = editDataVencimentoValue;
         lancamentos[lancamentoIndex].status = editStatus.value;
 
         // Lógica para dataPagamento:
@@ -408,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {string} id - O ID do lançamento a ser excluído.
      */
     function deleteLancamento(id) {
+        // Preferencialmente, substituir o `confirm` por um modal customizado para melhor UX em mobile
         if (confirm('Tem certeza que deseja excluir este lançamento? Esta ação é irreversível.')) {
             lancamentos = lancamentos.filter(lanc => lanc.id !== id); // Filtra o lançamento a ser excluído
             localStorage.setItem('lancamentos', JSON.stringify(lancamentos)); // Salva o array atualizado
@@ -483,36 +547,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Remover atributos data-label e estilos de responsividade mobile para impressão limpa
         // Itera sobre todos os elementos td, th, tr dentro da tabela clonada
-        tabelaParaImprimir.querySelectorAll('td[data-label], th, tr').forEach(el => {
+        tabelaParaImprimir.querySelectorAll('td, th, tr').forEach(el => { // Agora itera sobre td, th, tr
             if (el.tagName === 'TD' && el.hasAttribute('data-label')) {
                 el.removeAttribute('data-label');
-                el.style.paddingLeft = ''; // Reseta padding-left
-                el.style.textAlign = ''; // Reseta text-align
             }
-            // Reseta todos os estilos de display, position, width etc. que foram adicionados para mobile
-            el.style.display = '';
-            el.style.position = '';
-            el.style.top = '';
-            el.style.left = '';
-            el.style.width = '';
-            el.style.paddingRight = '';
-            el.style.whiteSpace = '';
-            el.style.overflow = '';
-            el.style.textOverflow = '';
-            el.style.marginBottom = '';
-            el.style.border = '';
-            el.style.borderRadius = '';
-            el.style.backgroundColor = '';
-            el.style.boxShadow = '';
-            // Ajuste para a célula de ações que pode ter flexbox em mobile
-            if (el.tagName === 'TD' && el.classList.contains('acao-btn')) { // Se for um botão, não uma célula
-                el.style.display = 'inline-block'; // Ou outro display apropriado para botões
-                el.style.justifyContent = '';
-                el.style.flexWrap = '';
-                el.style.gap = '';
-            }
-             // Remove styles from td:before pseudoelement if present
-             if (el.tagName === 'TD') {
+            // Remove estilos de display, position, etc. que foram adicionados para mobile
+            el.style.cssText = ''; // Limpa todos os estilos inline para a impressão
+            if (el.tagName === 'TD') {
                 el.classList.add('no-pseudo'); // Adiciona uma classe para desativar o pseudoelemento via CSS
             }
         });
@@ -520,7 +561,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Específico para o thead, caso tenha sido escondido ou modificado para mobile
         if (tabelaParaImprimir.querySelector('thead')) {
             tabelaParaImprimir.querySelector('thead').style.display = ''; // Garante que thead esteja visível
-            tabelaParaImprimir.querySelector('thead tr').style.position = ''; // Remove position se foi adicionado para thead tr
         }
 
 

@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minhas Finanças</title>
+    <title>Minhas Finanças Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <h1>Minhas Finanças</h1>
+        <h1>Minhas Finanças Pro</h1>
         <nav>
             <button id="btnLancamento">Novo Lançamento</button>
             <button id="btnResumo">Resumo Mensal</button>
@@ -21,6 +21,10 @@
         <section id="lancamentoSection" class="active">
             <h2>Adicionar Novo Lançamento</h2>
             <form id="formLancamento">
+                <div class="form-group">
+                    <label for="codigoBarras">Código de Barras (Opcional):</label>
+                    <input type="text" id="codigoBarras" placeholder="Leia ou digite o código de barras">
+                </div>
                 <div class="form-group">
                     <label for="tipo">Tipo de Transação:</label>
                     <select id="tipo" required>
@@ -129,6 +133,8 @@
             </form>
         </div>
     </div>
+
+    <div id="feedbackToast" class="toast"></div>
 
     <script src="script.js"></script>
 </body>

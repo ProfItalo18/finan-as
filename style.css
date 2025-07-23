@@ -434,6 +434,39 @@ form button[type="submit"]:hover {
     text-decoration: none;
 }
 
+/* --- Estilos para o TOAST de Feedback --- */
+.toast {
+    visibility: hidden; /* Oculto por padrão */
+    min-width: 250px;
+    /* margin-left: -125px; Removido para simplificar centralização com flexbox em mobile */
+    background-color: var(--primary-dark-color);
+    color: #fff;
+    text-align: center;
+    border-radius: var(--border-radius);
+    padding: var(--spacing-sm);
+    position: fixed;
+    z-index: 1001; /* Acima do modal */
+    left: 50%; /* Posiciona no centro horizontal */
+    transform: translateX(-50%); /* Ajusta para centralizar pelo próprio elemento */
+    bottom: var(--spacing-lg);
+    font-size: 1em;
+    opacity: 0;
+    transition: opacity 0.5s ease-out, visibility 0.5s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.toast.show {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Cores específicas para os tipos de toast */
+.toast.success { background-color: var(--secondary-color); }
+.toast.error { background-color: var(--danger-color); }
+.toast.warning { background-color: var(--warning-color); color: var(--text-color); } /* Texto escuro para warning */
+.toast.info { background-color: var(--primary-color); }
+
+
 /* Responsividade para Telas Menores (Mobile-first) */
 @media (max-width: 768px) {
     header h1 {
@@ -475,6 +508,13 @@ form button[type="submit"]:hover {
     .modal-content {
         width: 95%;
         padding: var(--spacing-md);
+    }
+    .toast {
+        width: 90%; /* Ocupa mais largura em mobile */
+        left: 5%; /* Ajuste para não ter margin-left negativo */
+        transform: none; /* Remove a transformação de centralização */
+        margin: 0 auto; /* Centraliza com margin auto */
+        bottom: var(--spacing-sm); /* Mais perto da parte inferior */
     }
 }
 
@@ -537,5 +577,12 @@ form button[type="submit"]:hover {
         justify-content: center;
         flex-wrap: wrap; /* Permite que os botões quebrem a linha */
         gap: 5px; /* Espaçamento entre os botões */
+    }
+}
+
+/* Regra específica para impressão para desativar o pseudoelemento em TD */
+@media print {
+    td.no-pseudo::before {
+        content: none !important;
     }
 }
