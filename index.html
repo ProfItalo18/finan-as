@@ -3,26 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planilha de Lançamentos Financeiros</title>
-    <link rel="icon" href="https://img.icons8.com/color/48/000000/money-bag.png" type="image/png">
-    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <title>Gestão Financeira Inteligente</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+    <script src="https://unpkg.com/quagga-lib/dist/quagga.min.js"></script>
 </head>
 <body>
     <header>
-        <h1>Minhas Finanças Pessoais</h1>
+        <h1>Minhas Finanças</h1>
         <nav>
-            <button id="btnLancamento">Novo Lançamento</button>
-            <button id="btnResumo">Resumo Mensal</button>
-            <button id="btnHistorico">Histórico</button>
+            <ul>
+                <li><a href="#lancamentos">Lançamentos</a></li>
+                <li><a href="#resumo">Resumo Mensal</a></li>
+                <li><a href="#historico">Histórico</a></li>
+            </ul>
         </nav>
     </header>
 
     <main>
-        <section id="lancamentoSection" class="active">
-            <h2>Registrar Novo Lançamento</h2>
-            <form id="formLancamento">
+        <section id="lancamentos" class="card">
+            <h2>Novo Lançamento</h2>
+            <form id="form-lancamento">
+                <div class="form-group">
+                    <label for="descricao">Descrição:</label>
+                    <input type="text" id="descricao" required>
+                </div>
+                <div class="form-group">
+                    <label for="valor">Valor:</label>
+                    <input type="number" id="valor" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="data">Data:</label>
+                    <input type="date" id="data" required>
+                </div>
                 <div class="form-group">
                     <label for="tipo">Tipo:</label>
                     <select id="tipo" required>
@@ -35,120 +47,77 @@
                 <div class="form-group">
                     <label for="categoria">Categoria:</label>
                     <select id="categoria" required>
-                        <option value="">Selecione o tipo primeiro</option>
-                    </select>
+                        </select>
                 </div>
-                <div class="form-group">
-                    <label for="codigoBarras">Código de Barras:</label>
-                    <input type="text" id="codigoBarras" placeholder="Leia ou digite o código de barras">
-                    <button type="button" id="btnAtivarLeitorCamera">Ativar Leitor (Câmera)</button>
+                <div class="form-group action-buttons-form">
+                    <button type="submit">Adicionar Lançamento</button>
+                    <button type="button" id="open-scanner-btn">Escanear Código de Barras</button>
                 </div>
-                <div class="form-group">
-                    <label for="descricao">Descrição:</label>
-                    <input type="text" id="descricao" placeholder="Ex: Conta de Luz, Salário" required>
-                </div>
-                <div class="form-group">
-                    <label for="valor">Valor:</label>
-                    <input type="number" id="valor" step="0.01" min="0.01" placeholder="0.00" required>
-                </div>
-                <div class="form-group">
-                    <label for="dataVencimento">Data de Vencimento:</label>
-                    <input type="date" id="dataVencimento" required>
-                </div>
-                <button type="submit">Adicionar Lançamento</button>
             </form>
         </section>
 
-        <section id="resumoSection" class="hidden">
-            <h2>Resumo Financeiro Mensal</h2>
-            <div id="resumoContainer">
-                </div>
+        <section id="barcode-scanner" class="card scanner-hidden">
+            <h2>Escanear Código de Barras</h2>
+            <div id="interactive" class="viewport"></div>
+            <div class="scanner-actions">
+                <button id="start-scanner-btn" style="display: none;">Iniciar Scanner</button> <button id="stop-scanner-btn" style="display: none;">Parar Scanner</button>
+                <button id="close-scanner-btn">Fechar Scanner</button>
+            </div>
+            <p id="barcode-result" style="margin-top: 20px; font-weight: bold;"></p>
+            <p id="scanner-status" style="margin-top: 10px; font-style: italic; color: #888;"></p>
         </section>
 
-        <section id="historicoSection" class="hidden">
+        <section id="resumo" class="card">
+            <h2>Resumo Mensal</h2>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <h3>Receitas</h3>
+                    <p id="total-receitas">R$ 0,00</p>
+                </div>
+                <div class="summary-item">
+                    <h3>Despesas</h3>
+                    <p id="total-despesas">R$ 0,00</p>
+                </div>
+                <div class="summary-item">
+                    <h3>Investimentos</h3>
+                    <p id="total-investimentos">R$ 0,00</p>
+                </div>
+                <div class="summary-item total">
+                    <h3>Saldo Mensal</h3>
+                    <p id="saldo-mensal">R$ 0,00</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="historico" class="card">
             <h2>Histórico de Lançamentos</h2>
-            <div class="filter-controls">
-                <label for="mesFiltro">Filtrar por Mês:</label>
-                <input type="month" id="mesFiltro">
-                <button id="btnFiltrarHistorico">Filtrar</button>
-                <button id="btnPrintHistorico">Imprimir/Exportar</button>
+            <div class="filter-actions">
+                <select id="filtro-mes-ano">
+                    </select>
+                <button id="btn-imprimir">Imprimir Relatório</button>
             </div>
-            <div class="table-responsive">
-                <table id="tabelaHistorico">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Tipo</th>
-                            <th>Categoria</th>
-                            <th>Descrição</th>
-                            <th>Valor</th>
-                            <th>Vencimento</th>
-                            <th>Pagamento</th>
-                            <th>Status</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        </tbody>
-                </table>
-            </div>
+            <table id="tabela-lancamentos">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Data</th>
+                        <th>Descrição</th>
+                        <th>Categoria</th>
+                        <th>Tipo</th>
+                        <th>Valor</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
         </section>
     </main>
 
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h2>Editar Lançamento</h2>
-            <form id="formEditLancamento">
-                <input type="hidden" id="editId">
-                <div class="form-group">
-                    <label for="editTipo">Tipo:</label>
-                    <select id="editTipo" disabled> <option value="receita">Receita</option>
-                        <option value="despesa">Despesa</option>
-                        <option value="investimento">Investimento</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="editCategoria">Categoria:</label>
-                    <select id="editCategoria" required>
-                        <option value="">Selecione</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="editDescricao">Descrição:</label>
-                    <input type="text" id="editDescricao" required>
-                </div>
-                <div class="form-group">
-                    <label for="editValor">Valor:</label>
-                    <input type="number" id="editValor" step="0.01" min="0.01" required>
-                </div>
-                <div class="form-group">
-                    <label for="editDataVencimento">Data de Vencimento:</label>
-                    <input type="date" id="editDataVencimento" required>
-                </div>
-                <div class="form-group">
-                    <label for="editStatus">Status:</label>
-                    <select id="editStatus">
-                        <option value="Pendente">Pendente</option>
-                        <option value="Pago">Pago</option>
-                    </select>
-                </div>
-                <button type="submit">Salvar Alterações</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="scannerModal" class="modal">
-        <div class="modal-content">
-            <span class="close-button-scanner">&times;</span>
-            <h2>Leitor de Código de Barras</h2>
-            <video id="videoScanner" playsinline autoplay></video>
-            <p id="scannerResult">Aguardando leitura...</p>
-            <button type="button" id="btnCancelarScanner">Cancelar Leitura</button>
-        </div>
-    </div>
-
-    <div id="feedbackToast" class="toast"></div>
+    <footer>
+        <p>&copy; 2025 Gestão Financeira Inteligente. Todos os direitos reservados.</p>
+    </footer>
 
     <script src="script.js"></script>
 </body>

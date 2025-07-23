@@ -1,722 +1,494 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Referências aos Elementos do DOM ---
-    const btnLancamento = document.getElementById('btnLancamento');
-    const btnResumo = document.getElementById('btnResumo');
-    const btnHistorico = document.getElementById('btnHistorico');
-
-    const lancamentoSection = document.getElementById('lancamentoSection');
-    const resumoSection = document.getElementById('resumoSection');
-    const historicoSection = document.getElementById('historicoSection');
-
-    const formLancamento = document.getElementById('formLancamento');
-    const tipoSelect = document.getElementById('tipo');
-    const categoriaSelect = document.getElementById('categoria');
+    // --- Elementos do DOM ---
+    const formLancamento = document.getElementById('form-lancamento');
     const descricaoInput = document.getElementById('descricao');
     const valorInput = document.getElementById('valor');
-    const dataVencimentoInput = document.getElementById('dataVencimento');
-    const codigoBarrasInput = document.getElementById('codigoBarras'); // Campo de input para o código de barras
+    const dataInput = document.getElementById('data');
+    const tipoSelect = document.getElementById('tipo');
+    const categoriaSelect = document.getElementById('categoria');
+    const tabelaLancamentosBody = document.querySelector('#tabela-lancamentos tbody');
+    const totalReceitasSpan = document.getElementById('total-receitas');
+    const totalDespesasSpan = document.getElementById('total-despesas');
+    const totalInvestimentosSpan = document.getElementById('total-investimentos');
+    const saldoMensalSpan = document.getElementById('saldo-mensal');
+    const filtroMesAnoSelect = document.getElementById('filtro-mes-ano');
+    const btnImprimir = document.getElementById('btn-imprimir');
 
-    // Novo botão para ativar o leitor via câmera
-    const btnAtivarLeitorCamera = document.getElementById('btnAtivarLeitorCamera');
+    // Elementos do Scanner
+    const barcodeScannerSection = document.getElementById('barcode-scanner');
+    const startScannerBtn = document.getElementById('start-scanner-btn'); // Visibilidade controlada via JS
+    const stopScannerBtn = document.getElementById('stop-scanner-btn');
+    const closeScannerBtn = document.getElementById('close-scanner-btn');
+    const barcodeResultP = document.getElementById('barcode-result');
+    const scannerStatusP = document.getElementById('scanner-status');
+    const openScannerBtn = document.getElementById('open-scanner-btn');
 
-    const tabelaHistoricoBody = document.querySelector('#tabelaHistorico tbody');
-    const resumoContainer = document.getElementById('resumoContainer');
-    const mesFiltro = document.getElementById('mesFiltro');
-    const btnFiltrarHistorico = document.getElementById('btnFiltrarHistorico');
-    const btnPrintHistorico = document.getElementById('btnPrintHistorico');
-
-    // Elementos do Modal de Edição
-    const editModal = document.getElementById('editModal');
-    const closeButton = editModal.querySelector('.close-button');
-    const formEditLancamento = document.getElementById('formEditLancamento');
-    const editId = document.getElementById('editId');
-    const editTipo = document.getElementById('editTipo');
-    const editCategoria = document.getElementById('editCategoria');
-    const editDescricao = document.getElementById('editDescricao');
-    const editValor = document.getElementById('editValor');
-    const editDataVencimento = document.getElementById('editDataVencimento');
-    const editStatus = document.getElementById('editStatus');
-
-    // Elemento para o feedback do usuário (TOAST)
-    const feedbackToast = document.getElementById('feedbackToast');
-
-    // --- Elementos do Scanner de Código de Barras (Câmera) ---
-    const scannerModal = document.getElementById('scannerModal');
-    const closeButtonScanner = scannerModal.querySelector('.close-button-scanner');
-    const videoScanner = document.getElementById('videoScanner');
-    const scannerResult = document.getElementById('scannerResult');
-    const btnCancelarScanner = document.getElementById('btnCancelarScanner');
-
-    // Instância do leitor de código de barras (ZXing-JS)
-    let codeReader = null; // Será inicializado quando o scanner for aberto
-    let isScanning = false; // Flag para controlar o estado do scanner
-
-    // --- Armazenamento de Dados ---
+    // --- Variáveis de Estado ---
     let lancamentos = JSON.parse(localStorage.getItem('lancamentos')) || [];
+    let editandoId = null;
+    let scannerRunning = false;
 
-    // --- Categorias Pré-definidas ---
+    // --- Dados Fixos (Categorias) ---
     const categorias = {
-        receita: ['Salário', 'Freelance', 'Vendas', 'Aluguel Recebido', 'Rendimento de Investimentos', 'Presente/Doação', 'Reembolso', 'Outras Receitas'],
-        despesa: ['Moradia', 'Alimentação', 'Transporte', 'Lazer', 'Educação', 'Saúde', 'Contas', 'Vestuário', 'Cuidados Pessoais', 'Outras Despesas'],
-        investimento: ['Ações', 'Fundos de Investimento', 'Renda Fixa', 'Criptomoedas', 'Previdência Privada', 'Imóveis', 'Poupança', 'Outros Investimentos']
+        receita: ['Salário', 'Freelance', 'Dividendos', 'Aluguel Recebido', 'Venda de Ativos', 'Reembolso', 'Outros'],
+        despesa: ['Moradia (Aluguel/Prestação)', 'Alimentação', 'Transporte', 'Lazer e Entretenimento', 'Saúde', 'Educação', 'Contas de Consumo (Água, Luz, Internet)', 'Vestuário', 'Impostos e Taxas', 'Automóvel', 'Dívidas e Empréstimos', 'Outros'],
+        investimento: ['Renda Fixa (CDB, LCI/LCA)', 'Renda Variável (Ações, FIIs)', 'Fundos de Investimento', 'Previdência Privada', 'Criptomoedas', 'Tesouro Direto', 'Outros']
     };
 
-    // --- Produtos Mock (para simular leitura de código de barras) ---
-    // Estes dados seriam normalmente buscados de um banco de dados ou API
-    const produtosMock = [
-        { codigo: '7891234567890', nome: 'Pacote de Arroz 5kg', preco: 25.50, categoria: 'Alimentação', tipo: 'despesa' },
-        { codigo: '9876543210987', nome: 'Livro "Dom Casmurro"', preco: 45.00, categoria: 'Educação', tipo: 'despesa' },
-        { codigo: '1122334455667', nome: 'Serviço de Manutenção - PC', preco: 150.00, categoria: 'Outras Despesas', tipo: 'despesa' },
-        { codigo: '2233445566778', nome: 'Camiseta Básica', preco: 39.90, categoria: 'Vestuário', tipo: 'despesa' },
-        { codigo: '3344556677889', nome: 'Leite Integral 1L', preco: 5.20, categoria: 'Alimentação', tipo: 'despesa' },
-        { codigo: '4455667788990', nome: 'Consulta Médica', preco: 200.00, categoria: 'Saúde', tipo: 'despesa' },
-        { codigo: '5566778899001', nome: 'Mensalidade Academia', preco: 80.00, categoria: 'Lazer', tipo: 'despesa' },
-        { codigo: '6677889900112', nome: 'Licença de Software', preco: 120.00, categoria: 'Educação', tipo: 'despesa' },
-        { codigo: '7788990011223', nome: 'Rendimento CDB', preco: 75.00, categoria: 'Rendimento de Investimentos', tipo: 'receita' },
-        { codigo: '8899001122334', nome: 'Devolução de Compra', preco: 55.00, categoria: 'Reembolso', tipo: 'receita' },
-    ];
-
-
-    // --- Funções Auxiliares Comuns ---
+    // --- Funções Auxiliares ---
 
     /**
-     * Gera um ID alfanumérico aleatório.
-     * @returns {string} ID gerado.
+     * Gera um ID alfanumérico aleatório de 5 caracteres.
+     * @returns {string} O ID gerado.
      */
-    function generateId() {
-        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    function gerarId() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         let result = '';
         for (let i = 0; i < 5; i++) {
-            result += characters.charAt(Math.floor(Math.random() * characters.length));
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return result;
     }
 
     /**
-     * Alterna a visibilidade das seções da página.
-     * @param {HTMLElement} sectionToShow - A seção HTML a ser exibida.
+     * Formata um valor numérico para o formato de moeda BRL.
+     * @param {number} valor - O valor a ser formatado.
+     * @returns {string} O valor formatado.
      */
-    function showSection(sectionToShow) {
-        document.querySelectorAll('section').forEach(section => {
-            section.classList.remove('active');
-            section.classList.add('hidden');
-        });
-        sectionToShow.classList.remove('hidden');
-        sectionToShow.classList.add('active');
+    function formatarMoeda(valor) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
     }
 
     /**
-     * Exibe uma mensagem de feedback (toast) para o usuário.
-     * @param {string} message - A mensagem a ser exibida.
-     * @param {string} type - Tipo de feedback ('info', 'success', 'warning', 'error').
+     * Tenta extrair o valor de um código de barras de boleto brasileiro (linha digitável).
+     * Esta função é uma ABORDAGEM SIMPLIFICADA e pode não ser 100% precisa para
+     * todos os tipos de boletos brasileiros, que seguem padrões complexos (FEBRABAN).
+     * @param {string} barcode - A linha digitável do boleto (geralmente 47 ou 48 dígitos).
+     * @returns {number} O valor extraído ou 0 se não for possível.
      */
-    function showFeedback(message, type = 'info') {
-        if (!feedbackToast) {
-            alert(message); // Fallback caso o toast não esteja disponível
-            return;
+    function extractValueFromBarcode(barcode) {
+        // Remove caracteres não numéricos
+        const cleanBarcode = barcode.replace(/\D/g, '');
+
+        // Lógica para linha digitável de 47 ou 48 dígitos (boletos bancários brasileiros)
+        if (cleanBarcode.length === 47 || cleanBarcode.length === 48) {
+            // Para boletos de 47 dígitos (títulos): o valor está na posição 37-47 (10 dígitos)
+            // Os 8 primeiros são inteiros, os 2 últimos são centavos
+            const valorString = cleanBarcode.substring(37, 47); // Ex: "0000012345"
+            if (valorString.match(/^\d{10}$/)) { // Verifica se são 10 dígitos numéricos
+                const valorInteiro = parseInt(valorString.substring(0, 8), 10);
+                const valorDecimal = parseInt(valorString.substring(8, 10), 10);
+                return parseFloat(`${valorInteiro}.${valorDecimal}`);
+            }
         }
-        feedbackToast.textContent = message;
-        feedbackToast.className = `toast show ${type}`; // Adiciona classes para mostrar e estilizar
-        setTimeout(() => {
-            feedbackToast.className = feedbackToast.className.replace("show", ""); // Esconde após 3 segundos
-        }, 3000);
+        // Para códigos de barras de convênio (geralmente 48 dígitos, mas com DV diferente)
+        // O valor pode estar em posições diferentes, dependendo do tipo de convênio.
+        // Se a primeira parte não se encaixa, podemos tentar outras lógicas genéricas.
+        // Exemplo: Últimos 10 dígitos como valor (alguns EANs ou Code128 podem ter essa estrutura simples)
+        if (cleanBarcode.length >= 10) {
+            const lastTen = cleanBarcode.substring(cleanBarcode.length - 10);
+            if (lastTen.match(/^\d+$/)) { // Se for só número
+                const integerPart = parseInt(lastTen.substring(0, lastTen.length - 2), 10);
+                const decimalPart = parseInt(lastTen.substring(lastTen.length - 2), 10);
+                return parseFloat(`${integerPart}.${decimalPart}`);
+            }
+        }
+
+        console.warn("Não foi possível extrair um valor numérico válido do código de barras:", barcode);
+        return 0; // Retorna 0 se não conseguir extrair um valor
     }
 
+    // --- Gerenciamento de UI ---
+
     /**
-     * Preenche um <select> de categorias com base no tipo de transação.
-     * @param {HTMLSelectElement} selectElement - O elemento <select> de categorias.
-     * @param {string} selectedType - O tipo de transação (ex: 'receita', 'despesa').
-     * @param {string} [selectedCategory=''] - Categoria a ser pré-selecionada (opcional).
+     * Popula o select de categorias com base no tipo de lançamento selecionado.
      */
-    function loadCategories(selectElement, selectedType, selectedCategory = '') {
-        selectElement.innerHTML = '<option value="">Selecione</option>'; // Limpa e adiciona opção padrão
-        if (selectedType && categorias[selectedType]) {
-            categorias[selectedType].forEach(categoria => {
+    function popularCategorias() {
+        const tipo = tipoSelect.value;
+        categoriaSelect.innerHTML = '<option value="">Selecione a Categoria</option>';
+        if (tipo && categorias[tipo]) {
+            categorias[tipo].forEach(categoria => {
                 const option = document.createElement('option');
                 option.value = categoria;
                 option.textContent = categoria;
-                if (categoria === selectedCategory) {
-                    option.selected = true; // Seleciona a categoria se corresponder
-                }
-                selectElement.appendChild(option);
+                categoriaSelect.appendChild(option);
             });
+            categoriaSelect.disabled = false;
+        } else {
+            categoriaSelect.disabled = true;
         }
     }
 
-    // Carrega categorias quando o tipo de transação muda
-    tipoSelect.addEventListener('change', () => {
-        loadCategories(categoriaSelect, tipoSelect.value);
-    });
+    /**
+     * Popula o select de filtro de mês/ano com os meses dos lançamentos existentes.
+     */
+    function popularFiltroMesAno() {
+        const mesesAnos = new Set();
+        lancamentos.forEach(lancamento => {
+            const data = new Date(lancamento.data + 'T12:00:00'); // Adiciona T12:00:00 para evitar problemas de fuso horário
+            const mesAno = `${data.getFullYear()}-${(data.getMonth() + 1).toString().padStart(2, '0')}`;
+            mesesAnos.add(mesAno);
+        });
 
-    // --- Lógica de Adição de Lançamento ---
+        filtroMesAnoSelect.innerHTML = '<option value="todos">Todos os Meses</option>';
+        // Ordena do mais recente para o mais antigo
+        const sortedMesesAnos = Array.from(mesesAnos).sort((a, b) => b.localeCompare(a));
+        sortedMesesAnos.forEach(mesAno => {
+            const [ano, mes] = mesAno.split('-');
+            const dataExemplo = new Date(ano, parseInt(mes, 10) - 1, 1);
+            const nomeMes = dataExemplo.toLocaleString('pt-BR', { month: 'long' });
+            const option = document.createElement('option');
+            option.value = mesAno;
+            option.textContent = `${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)} de ${ano}`;
+            filtroMesAnoSelect.appendChild(option);
+        });
 
+        const dataAtual = new Date();
+        const mesAtual = `${dataAtual.getFullYear()}-${(dataAtual.getMonth() + 1).toString().padStart(2, '0')}`;
+        if (sortedMesesAnos.includes(mesAtual)) {
+            filtroMesAnoSelect.value = mesAtual;
+        } else {
+            filtroMesAnoSelect.value = 'todos';
+        }
+    }
+
+    /**
+     * Renderiza os lançamentos na tabela e atualiza o resumo.
+     */
+    function renderizarLancamentos() {
+        const filtroMesAno = filtroMesAnoSelect.value;
+        tabelaLancamentosBody.innerHTML = '';
+        let receitasTotal = 0;
+        let despesasTotal = 0;
+        let investimentosTotal = 0;
+
+        const lancamentosFiltrados = lancamentos.filter(lancamento => {
+            if (filtroMesAno === 'todos') {
+                return true;
+            }
+            const dataLancamento = new Date(lancamento.data + 'T12:00:00');
+            const mesAnoLancamento = `${dataLancamento.getFullYear()}-${(dataLancamento.getMonth() + 1).toString().padStart(2, '0')}`;
+            return mesAnoLancamento === filtroMesAno;
+        });
+
+        if (lancamentosFiltrados.length === 0) {
+            tabelaLancamentosBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum lançamento encontrado para este período.</td></tr>';
+        }
+
+        lancamentosFiltrados.forEach(lancamento => {
+            const row = tabelaLancamentosBody.insertRow();
+            row.dataset.id = lancamento.id;
+
+            if (lancamento.tipo === 'receita') {
+                row.style.color = 'var(--accent-color)';
+            } else if (lancamento.tipo === 'despesa') {
+                row.style.color = 'var(--danger-color)';
+            }
+
+            const statusClass = lancamento.statusPagamento === 'pago' ? 'status-pago' : 'status-pendente';
+            const dataPagamentoStr = lancamento.dataPagamento ? new Date(lancamento.dataPagamento + 'T12:00:00').toLocaleDateString('pt-BR') : '';
+            const statusText = lancamento.statusPagamento === 'pago' ? `Pago em ${dataPagamentoStr}` : 'Pendente';
+
+            row.innerHTML = `
+                <td>${lancamento.id}</td>
+                <td>${new Date(lancamento.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                <td>${lancamento.descricao}</td>
+                <td>${lancamento.categoria}</td>
+                <td>${lancamento.tipo.charAt(0).toUpperCase() + lancamento.tipo.slice(1)}</td>
+                <td>${formatarMoeda(lancamento.valor)}</td>
+                <td class="${statusClass}">${statusText}</td>
+                <td class="action-buttons">
+                    <button class="edit-btn" data-id="${lancamento.id}">Editar</button>
+                    <button class="delete-btn" data-id="${lancamento.id}">Excluir</button>
+                    ${lancamento.statusPagamento === 'pendente' ? `<button class="pay-btn" data-id="${lancamento.id}">Baixar</button>` : ''}
+                </td>
+            `;
+
+            // Apenas despesas e investimentos PAGOS contam para o resumo!
+            if (lancamento.tipo === 'receita') {
+                receitasTotal += lancamento.valor;
+            } else if (lancamento.tipo === 'despesa' && lancamento.statusPagamento === 'pago') {
+                despesasTotal += lancamento.valor;
+            } else if (lancamento.tipo === 'investimento' && lancamento.statusPagamento === 'pago') {
+                investimentosTotal += lancamento.valor;
+            }
+        });
+        atualizarResumo(receitasTotal, despesasTotal, investimentosTotal);
+    }
+
+    /**
+     * Atualiza os valores exibidos no resumo mensal.
+     * @param {number} receitas - Total de receitas.
+     * @param {number} despesas - Total de despesas pagas.
+     * @param {number} investimentos - Total de investimentos pagos.
+     */
+    function atualizarResumo(receitas, despesas, investimentos) {
+        totalReceitasSpan.textContent = formatarMoeda(receitas);
+        totalDespesasSpan.textContent = formatarMoeda(despesas);
+        totalInvestimentosSpan.textContent = formatarMoeda(investimentos);
+        const saldo = receitas - despesas - investimentos;
+        saldoMensalSpan.textContent = formatarMoeda(saldo);
+        saldoMensalSpan.style.color = saldo >= 0 ? 'var(--accent-color)' : 'var(--danger-color)';
+    }
+
+    // --- Funções do Scanner ---
+
+    /**
+     * Inicia o QuaggaJS scanner.
+     */
+    function startScanner() {
+        if (scannerRunning) return;
+
+        scannerStatusP.textContent = 'Iniciando scanner...';
+        barcodeResultP.textContent = '';
+        stopScannerBtn.style.display = 'none'; // Garante que o botão de parar não apareça antes de iniciar
+
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: document.querySelector('#interactive.viewport'),
+                constraints: {
+                    width: { min: 640 },
+                    height: { min: 480 },
+                    aspectRatio: { min: 1, max: 100 },
+                    facingMode: "environment"
+                },
+            },
+            decoder: {
+                // Leitores comuns. 'i2of5_reader' é essencial para muitos boletos.
+                // A ordem pode influenciar a performance.
+                readers: ["ean_reader", "code_128_reader", "code_39_reader", "i2of5_reader"]
+            }
+        }, function (err) {
+            if (err) {
+                console.error("Erro ao iniciar QuaggaJS:", err);
+                scannerStatusP.textContent = `Erro ao iniciar câmera: ${err.message}. Verifique permissões.`;
+                barcodeResultP.textContent = 'Certifique-se de que sua câmera está funcionando e que você concedeu as permissões.';
+                scannerRunning = false;
+                startScannerBtn.style.display = 'inline-block'; // Permite tentar novamente
+                return;
+            }
+            console.log("QuaggaJS inicializado com sucesso!");
+            Quagga.start();
+            scannerRunning = true;
+            startScannerBtn.style.display = 'none';
+            stopScannerBtn.style.display = 'inline-block';
+            scannerStatusP.textContent = 'Posicione o código de barras na frente da câmera.';
+        });
+
+        // Este evento é disparado repetidamente, é importante ter uma lógica para parar após a primeira detecção válida.
+        Quagga.onDetected(function (result) {
+            const code = result.codeResult.code;
+            if (code && scannerRunning) { // Garante que o scanner ainda está ativo e que o código é válido
+                console.log("Código de Barras Detectado:", code);
+                decodeBarcodeAndFillForm(code);
+                stopScanner(); // Para o scanner após a primeira leitura bem-sucedida
+                Quagga.offDetected(); // Remove o listener para evitar múltiplas detecções
+            }
+        });
+
+        // Desenha os retângulos de detecção para feedback visual
+        Quagga.onProcessed(function(result) {
+            const drawingCtx = Quagga.canvas.ctx.overlay;
+            const drawingCanvas = Quagga.canvas.dom.overlay;
+
+            drawingCtx.clearRect(0, 0, parseInt(drawingCanvas.width), parseInt(drawingCanvas.height));
+
+            if (result) {
+                if (result.boxes) {
+                    result.boxes.filter(function (box) {
+                        return box !== result.box;
+                    }).forEach(function (box) {
+                        Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, drawingCtx, { color: "green", lineWidth: 2 });
+                    });
+                }
+                if (result.box) {
+                    Quagga.ImageDebug.drawPath(result.box, { x: 0, y: 1 }, drawingCtx, { color: "#00F", lineWidth: 2 });
+                }
+                if (result.codeResult && result.codeResult.code) {
+                    Quagga.ImageDebug.drawPath(result.line, { x: 'x', y: 'y' }, drawingCtx, { color: "red", lineWidth: 3 });
+                }
+            }
+        });
+    }
+
+    /**
+     * Para o QuaggaJS scanner.
+     */
+    function stopScanner() {
+        if (!scannerRunning) return;
+        Quagga.stop();
+        scannerRunning = false;
+        startScannerBtn.style.display = 'inline-block'; // Permite iniciar novamente manualmente
+        stopScannerBtn.style.display = 'none';
+        scannerStatusP.textContent = 'Scanner parado.';
+        barcodeResultP.textContent = ''; // Limpa o resultado ao parar
+        console.log("Scanner parado.");
+        // Remova listeners para evitar chamadas duplicadas se o scanner for reiniciado
+        Quagga.offDetected();
+        Quagga.offProcessed();
+    }
+
+    /**
+     * Decodifica o código de barras, extrai informações e preenche o formulário.
+     * @param {string} code - O código de barras decodificado.
+     */
+    function decodeBarcodeAndFillForm(code) {
+        barcodeResultP.textContent = `Código Lido: ${code}`;
+        scannerStatusP.textContent = 'Código de barras lido com sucesso! Preenchendo formulário...';
+
+        const valorLido = extractValueFromBarcode(code);
+
+        // Preenche os campos do formulário
+        descricaoInput.value = `Despesa - Boleto #${code.substring(code.length - 8)}`; // Usa parte final do código como ref
+        valorInput.value = valorLido.toFixed(2);
+        tipoSelect.value = 'despesa';
+        popularCategorias(); // Popula categorias para despesa
+        
+        // Tenta selecionar uma categoria comum para despesas de boleto
+        // Ajuste a lógica de seleção de categoria conforme suas necessidades
+        const suggestedCategories = [
+            'Contas de Consumo (Água, Luz, Internet)',
+            'Dívidas e Empréstimos',
+            'Impostos e Taxas',
+            'Outros'
+        ];
+        let categoryFound = false;
+        for (const cat of suggestedCategories) {
+            if (Array.from(categoriaSelect.options).some(opt => opt.value === cat)) {
+                categoriaSelect.value = cat;
+                categoryFound = true;
+                break;
+            }
+        }
+        if (!categoryFound && Array.from(categoriaSelect.options).some(opt => opt.value === 'Outros')) {
+            categoriaSelect.value = 'Outros';
+        }
+        
+        dataInput.valueAsDate = new Date(); // Data atual como data da despesa
+
+        // Volta para a seção de lançamentos após um pequeno atraso para o usuário ver o resultado
+        setTimeout(() => {
+            barcodeScannerSection.classList.add('scanner-hidden');
+            document.getElementById('lancamentos').style.display = 'block';
+            scannerStatusP.textContent = ''; // Limpa status
+            barcodeResultP.textContent = ''; // Limpa resultado
+        }, 1500); // 1.5 segundos de atraso
+    }
+
+    // --- Manipulação de Eventos ---
+
+    // Evento de submissão do formulário de lançamento
     formLancamento.addEventListener('submit', (e) => {
         e.preventDefault();
 
-        // Validação básica dos campos do formulário
-        const descricaoValue = descricaoInput.value.trim();
-        const valorValue = parseFloat(valorInput.value);
-        const dataVencimentoValue = dataVencimentoInput.value;
-
-        if (!tipoSelect.value || !categoriaSelect.value || !descricaoValue || isNaN(valorValue) || valorValue <= 0 || !dataVencimentoValue) {
-            showFeedback('Por favor, preencha todos os campos obrigatórios (Tipo, Categoria, Descrição, Valor > 0, Data de Vencimento).', 'warning');
-            return;
-        }
-
-        // Cria o objeto de lançamento
         const novoLancamento = {
-            id: generateId(),
+            descricao: descricaoInput.value,
+            valor: parseFloat(valorInput.value),
+            data: dataInput.value, // Data no formato YYYY-MM-DD
             tipo: tipoSelect.value,
             categoria: categoriaSelect.value,
-            descricao: descricaoValue,
-            valor: valorValue,
-            dataVencimento: dataVencimentoValue,
-            dataPagamento: null, // Inicialmente nulo
-            status: 'Pendente'   // Inicialmente pendente
+            statusPagamento: 'pendente', // Sempre começa como pendente
+            dataPagamento: null
         };
 
-        // Adiciona ao array e salva no Local Storage
-        lancamentos.push(novoLancamento);
+        if (editandoId) {
+            lancamentos = lancamentos.map(lanc => {
+                if (lanc.id === editandoId) {
+                    // Mantém status de pagamento e data de pagamento existentes ao editar
+                    return { ...novoLancamento, id: lanc.id, statusPagamento: lanc.statusPagamento, dataPagamento: lanc.dataPagamento };
+                }
+                return lanc;
+            });
+            editandoId = null;
+            formLancamento.querySelector('button[type="submit"]').textContent = 'Adicionar Lançamento';
+        } else {
+            novoLancamento.id = gerarId();
+            lancamentos.push(novoLancamento);
+        }
+
         localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
-
-        showFeedback('Lançamento adicionado com sucesso!', 'success');
-        formLancamento.reset(); // Limpa o formulário
-        categoriaSelect.innerHTML = '<option value="">Selecione o tipo primeiro</option>'; // Reseta a categoria
-        codigoBarrasInput.value = ''; // Limpa o campo de código de barras
-
-        // Atualiza as visualizações
-        renderHistorico(mesFiltro.value);
-        renderResumo();
+        formLancamento.reset();
+        popularCategorias();
+        popularFiltroMesAno();
+        renderizarLancamentos();
     });
 
-    // --- Lógica de Leitura de Código de Barras (Digitação ou Leitor USB) ---
-    // Este listener processa o código de barras digitado manualmente ou por um leitor USB que emula teclado.
-    if (codigoBarrasInput) {
-        codigoBarrasInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault(); // Impede o envio do formulário
-                const codigoLido = codigoBarrasInput.value.trim();
-                handleBarcodeScan(codigoLido); // Chama a função unificada de processamento
-            }
-        });
-    }
-
-    // --- Lógica do Scanner de Código de Barras (Câmera com ZXing-JS) ---
-
-    // Evento para ativar o leitor da câmera
-    btnAtivarLeitorCamera.addEventListener('click', () => {
-        // Inicializa o leitor ZXing-JS se ainda não foi
-        if (!codeReader) {
-            codeReader = new ZXing.BrowserMultiFormatReader();
-        }
-
-        // Exibe o modal do scanner
-        scannerModal.style.display = 'flex';
-        scannerResult.textContent = 'Aguardando leitura...';
-        isScanning = true; // Define o estado de escaneamento como ativo
-
-        // Lista os dispositivos de vídeo disponíveis (câmeras)
-        codeReader.listVideoInputDevices()
-            .then((videoInputDevices) => {
-                if (videoInputDevices.length > 0) {
-                    // Lógica para escolher a câmera:
-                    // 1. Tenta encontrar uma câmera traseira (environment)
-                    // 2. Caso contrário, usa a primeira câmera disponível
-                    const preferredDeviceId = videoInputDevices.find(
-                        device => device.label.toLowerCase().includes('back') || device.kind === 'environment'
-                    )?.deviceId || videoInputDevices[0].deviceId;
-
-                    // Inicia a decodificação do stream de vídeo da câmera selecionada
-                    codeReader.decodeFromVideoDevice(preferredDeviceId, videoScanner, (result, err) => {
-                        if (isScanning && result) { // Verifica se ainda estamos escaneando e se um código foi lido
-                            console.log('Código de barras lido via câmera:', result.text);
-                            scannerResult.textContent = `Lido: ${result.text}`;
-                            handleBarcodeScan(result.text); // Processa o código lido
-                            stopScanner(); // Para o scanner após a leitura bem-sucedida
-                        }
-
-                        // Ignora erros de "not found" (código não detectado) para continuar tentando
-                        if (err && !(err instanceof ZXing.NotFoundException)) {
-                            console.error('Erro no scanner:', err);
-                            scannerResult.textContent = 'Erro ao ler código. Tente novamente.';
-                            showFeedback(`Erro ao ativar leitor: ${err.message}`, 'error');
-                            stopScanner(); // Para o scanner em caso de erro grave (não apenas "não encontrado")
-                        }
-                    });
-                } else {
-                    // Se nenhuma câmera for encontrada
-                    showFeedback('Nenhuma câmera encontrada para leitura de código de barras.', 'warning');
-                    stopScanner(); // Fecha o modal
-                }
-            })
-            .catch((err) => {
-                // Erro ao acessar dispositivos (ex: permissão negada, câmera indisponível)
-                console.error('Erro ao acessar dispositivos de vídeo:', err);
-                scannerResult.textContent = 'Erro ao acessar a câmera. Verifique as permissões.';
-                showFeedback(`Não foi possível acessar a câmera. Por favor, conceda permissão ou verifique se outra aplicação está usando-a: ${err.message}`, 'error');
-                stopScanner(); // Fecha o modal em caso de erro
-            });
-    });
-
-    /**
-     * Para o scanner da câmera e fecha o modal.
-     */
-    function stopScanner() {
-        if (codeReader && isScanning) {
-            codeReader.reset(); // Reseta o leitor e para o stream da câmera
-            isScanning = false;
-            scannerModal.style.display = 'none'; // Esconde o modal do scanner
-            console.log('Scanner parado.');
-        }
-    }
-
-    // Eventos para fechar/cancelar o scanner
-    closeButtonScanner.addEventListener('click', stopScanner); // Botão 'X'
-    btnCancelarScanner.addEventListener('click', stopScanner); // Botão "Cancelar Leitura"
-    // Fecha o modal se o usuário clicar fora dele
-    window.addEventListener('click', (event) => {
-        if (event.target === scannerModal) {
-            stopScanner();
-        }
-    });
-
-    /**
-     * Lógica unificada para processar um código de barras lido (seja por câmera ou digitação).
-     * @param {string} codigoLido - O código de barras que foi lido/digitado.
-     */
-    function handleBarcodeScan(codigoLido) {
-        if (!codigoLido) {
-            showFeedback('Código de barras vazio.', 'warning');
-            return;
-        }
-
-        // Tenta encontrar o produto no mock de dados
-        const produtoEncontrado = produtosMock.find(p => p.codigo === codigoLido);
-
-        if (produtoEncontrado) {
-            // Preenche os campos do formulário com os dados do produto
-            tipoSelect.value = produtoEncontrado.tipo;
-            loadCategories(categoriaSelect, produtoEncontrado.tipo, produtoEncontrado.categoria);
-            descricaoInput.value = produtoEncontrado.nome;
-            valorInput.value = produtoEncontrado.preco.toFixed(2); // Formata para 2 casas decimais
-
-            showFeedback(`Produto "${produtoEncontrado.nome}" encontrado e campos preenchidos!`, 'info');
-        } else {
-            // Se o produto não for encontrado, preenche apenas o código e sugere preenchimento manual
-            descricaoInput.value = `Item - Cód: ${codigoLido}`;
-            valorInput.value = ''; // Limpa o valor para o usuário preencher
-            showFeedback('Código de barras não encontrado nos registros. Por favor, ajuste a descrição e outros campos.', 'warning');
-        }
-        codigoBarrasInput.value = codigoLido; // Preenche o campo de input visível
-        descricaoInput.focus(); // Move o foco para a descrição para o usuário continuar o preenchimento
-    }
-
-    // --- Lógica de Renderização da Tabela de Histórico ---
-
-    /**
-     * Renderiza a tabela de histórico de lançamentos, aplicando filtro por mês se especificado.
-     * @param {string|null} filtroMes - Mês no formato 'YYYY-MM' ou null para todos.
-     */
-    function renderHistorico(filtroMes = null) {
-        tabelaHistoricoBody.innerHTML = ''; // Limpa a tabela
-
-        let lancamentosFiltrados = lancamentos;
-        if (filtroMes) {
-            // Filtra os lançamentos pelo ano e mês
-            lancamentosFiltrados = lancamentos.filter(lanc => {
-                const dataVencimento = new Date(lanc.dataVencimento + 'T00:00:00'); // Garante fuso horário correto
-                const [anoFiltro, mesFiltroNum] = filtroMes.split('-');
-                return dataVencimento.getFullYear() === parseInt(anoFiltro) &&
-                       (dataVencimento.getMonth() + 1) === parseInt(mesFiltroNum);
-            });
-        }
-
-        // Ordena os lançamentos por data de vencimento e status
-        lancamentosFiltrados.sort((a, b) => {
-            const dateA = new Date(a.dataVencimento);
-            const dateB = new Date(b.dataVencimento);
-            if (dateA.getTime() !== dateB.getTime()) {
-                return dateA - dateB; // Ordena por data
-            }
-            // Se as datas forem iguais, "Pendente" vem antes de "Pago"
-            if (a.status === 'Pendente' && b.status === 'Pago') return -1;
-            if (a.status === 'Pago' && b.status === 'Pendente') return 1;
-            return 0;
-        });
-
-        // Exibe mensagem se não houver lançamentos filtrados
-        if (lancamentosFiltrados.length === 0) {
-            tabelaHistoricoBody.innerHTML = '<tr><td colspan="9">Nenhum lançamento encontrado para este período.</td></tr>';
-            return;
-        }
-
-        // Popula a tabela com os lançamentos
-        lancamentosFiltrados.forEach(lanc => {
-            const row = tabelaHistoricoBody.insertRow();
-            row.dataset.id = lanc.id; // Armazena o ID no dataset da linha
-
-            const statusClass = lanc.status === 'Pago' ? 'status-pago' : 'status-pendente';
-            const dataPagamentoFormatada = lanc.dataPagamento ? new Date(lanc.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A';
-            const dataVencimentoFormatada = new Date(lanc.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR');
-
-
-            row.innerHTML = `
-                <td data-label="ID:">${lanc.id}</td>
-                <td data-label="Tipo:">${lanc.tipo.charAt(0).toUpperCase() + lanc.tipo.slice(1)}</td>
-                <td data-label="Categoria:">${lanc.categoria}</td>
-                <td data-label="Descrição:">${lanc.descricao}</td>
-                <td data-label="Valor:">${lanc.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                <td data-label="Vencimento:">${dataVencimentoFormatada}</td>
-                <td data-label="Pagamento:">${dataPagamentoFormatada}</td>
-                <td data-label="Status:" class="${statusClass}">${lanc.status}</td>
-                <td data-label="Ações:">
-                    <button class="acao-btn editar" data-id="${lanc.id}">Editar</button>
-                    <button class="acao-btn excluir" data-id="${lanc.id}">Excluir</button>
-                    ${lanc.status === 'Pendente' ? `<button class="acao-btn baixar" data-id="${lanc.id}">Baixar</button>` : ''}
-                </td>
-            `;
-        });
-    }
-
-    // --- Lógica de Renderização do Resumo Mensal ---
-
-    /**
-     * Calcula e exibe o resumo financeiro para o mês atual.
-     */
-    function renderResumo() {
-        resumoContainer.innerHTML = ''; // Limpa o conteúdo anterior
-
-        const dataAtual = new Date();
-        const anoAtual = dataAtual.getFullYear();
-        const mesAtual = dataAtual.getMonth(); // Mês é zero-based (0-11)
-
-        // Filtra lançamentos do mês atual
-        const lancamentosDoMes = lancamentos.filter(lanc => {
-            const dataVencimento = new Date(lanc.dataVencimento + 'T00:00:00');
-            return dataVencimento.getFullYear() === anoAtual && dataVencimento.getMonth() === mesAtual;
-        });
-
-        let totalReceitas = 0;
-        let totalDespesas = 0;
-        let totalInvestimentos = 0;
-
-        // Soma os valores por tipo
-        lancamentosDoMes.forEach(lanc => {
-            if (lanc.tipo === 'receita') {
-                totalReceitas += lanc.valor;
-            } else if (lanc.tipo === 'despesa') {
-                totalDespesas += lanc.valor;
-            } else if (lanc.tipo === 'investimento') {
-                totalInvestimentos += lanc.valor;
-            }
-        });
-
-        const saldoMensal = totalReceitas - totalDespesas;
-
-        // Renderiza o resumo principal
-        resumoContainer.innerHTML = `
-            <h3>Mês de ${dataAtual.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}</h3>
-            <p><strong>Total de Receitas:</strong> ${totalReceitas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-            <p><strong>Total de Despesas:</strong> ${totalDespesas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-            <p><strong>Total de Investimentos:</strong> ${totalInvestimentos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-            <p><strong>Saldo Mensal:</strong> <span style="color: ${saldoMensal >= 0 ? 'var(--secondary-color)' : 'var(--danger-color)'};">${saldoMensal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></p>
-            <hr>
-            <h4>Despesas por Categoria:</h4>
-            <ul id="detalhesDespesas"></ul>
-            <h4>Receitas por Categoria:</h4>
-            <ul id="detalhesReceitas"></ul>
-            <h4>Investimentos Detalhados:</h4>
-            <ul id="detalhesInvestimentos"></ul>
-        `;
-
-        // Popula as listas de detalhes por categoria
-        const detalhesDespesas = document.getElementById('detalhesDespesas');
-        const detalhesReceitas = document.getElementById('detalhesReceitas');
-        const detalhesInvestimentos = document.getElementById('detalhesInvestimentos');
-
-        // Despesas
-        const despesasPorCategoria = {};
-        lancamentosDoMes.filter(l => l.tipo === 'despesa').forEach(lanc => {
-            despesasPorCategoria[lanc.categoria] = (despesasPorCategoria[lanc.categoria] || 0) + lanc.valor;
-        });
-        if (Object.keys(despesasPorCategoria).length === 0) {
-            detalhesDespesas.innerHTML = '<li>Nenhuma despesa registrada neste mês.</li>';
-        } else {
-            Object.entries(despesasPorCategoria).sort(([, a], [, b]) => b - a).forEach(([categoria, valor]) => {
-                const li = document.createElement('li');
-                li.textContent = `${categoria}: ${valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
-                detalhesDespesas.appendChild(li);
-            });
-        }
-
-        // Receitas
-        const receitasPorCategoria = {};
-        lancamentosDoMes.filter(l => l.tipo === 'receita').forEach(lanc => {
-            receitasPorCategoria[lanc.categoria] = (receitasPorCategoria[lanc.categoria] || 0) + lanc.valor;
-        });
-        if (Object.keys(receitasPorCategoria).length === 0) {
-            detalhesReceitas.innerHTML = '<li>Nenhuma receita registrada neste mês.</li>';
-        } else {
-            Object.entries(receitasPorCategoria).sort(([, a], [, b]) => b - a).forEach(([categoria, valor]) => {
-                const li = document.createElement('li');
-                li.textContent = `${categoria}: ${valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
-                detalhesReceitas.appendChild(li);
-            });
-        }
-
-        // Investimentos
-        const investimentosDoMes = lancamentosDoMes.filter(l => l.tipo === 'investimento');
-        if (investimentosDoMes.length === 0) {
-            detalhesInvestimentos.innerHTML = '<li>Nenhum investimento registrado neste mês.</li>';
-        } else {
-            investimentosDoMes.sort((a, b) => b.valor - a.valor).forEach(lanc => {
-                const li = document.createElement('li');
-                li.textContent = `${lanc.categoria} - ${lanc.descricao}: ${lanc.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
-                detalhesInvestimentos.appendChild(li);
-            });
-        }
-    }
-
-    // --- Lógica de Ações da Tabela (Editar, Excluir, Baixar) ---
-
-    // Delegação de eventos para botões na tabela do histórico
-    tabelaHistoricoBody.addEventListener('click', (e) => {
+    // Eventos para botões de ação na tabela (editar, excluir, baixar)
+    tabelaLancamentosBody.addEventListener('click', (e) => {
         const target = e.target;
-        const id = target.dataset.id; // Pega o ID do dataset do botão clicado
+        const id = target.dataset.id;
 
-        if (!id) return; // Se não tiver ID, ignora
+        if (target.classList.contains('edit-btn')) {
+            const lancamentoParaEditar = lancamentos.find(lanc => lanc.id === id);
+            if (lancamentoParaEditar) {
+                descricaoInput.value = lancamentoParaEditar.descricao;
+                valorInput.value = lancamentoParaEditar.valor;
+                dataInput.value = lancamentoParaEditar.data;
+                tipoSelect.value = lancamentoParaEditar.tipo;
+                popularCategorias(); // Popula categorias antes de setar
+                categoriaSelect.value = lancamentoParaEditar.categoria;
 
-        if (target.classList.contains('editar')) {
-            editLancamento(id);
-        } else if (target.classList.contains('excluir')) {
-            deleteLancamento(id);
-        } else if (target.classList.contains('baixar')) {
-            markAsPaid(id);
-        }
-    });
-
-    /**
-     * Abre o modal de edição e preenche com os dados do lançamento.
-     * @param {string} id - O ID do lançamento a ser editado.
-     */
-    function editLancamento(id) {
-        const lancamentoToEdit = lancamentos.find(lanc => lanc.id === id);
-        if (!lancamentoToEdit) {
-            showFeedback('Lançamento não encontrado para edição.', 'error');
-            return;
-        }
-
-        // Preenche os campos do modal de edição
-        editId.value = lancamentoToEdit.id;
-        editTipo.value = lancamentoToEdit.tipo; // Tipo é desabilitado para edição
-        loadCategories(editCategoria, lancamentoToEdit.tipo, lancamentoToEdit.categoria); // Carrega e seleciona categoria
-        editDescricao.value = lancamentoToEdit.descricao;
-        editValor.value = lancamentoToEdit.valor;
-        editDataVencimento.value = lancamentoToEdit.dataVencimento;
-        editStatus.value = lancamentoToEdit.status;
-
-        editModal.style.display = 'flex'; // Exibe o modal
-    }
-
-    // Lógica para salvar as edições do lançamento
-    formEditLancamento.addEventListener('submit', (e) => {
-        e.preventDefault();
-
-        const id = editId.value;
-        const lancamentoIndex = lancamentos.findIndex(lanc => lanc.id === id);
-
-        if (lancamentoIndex === -1) {
-            showFeedback('Erro: Lançamento não encontrado para atualização.', 'error');
-            return;
-        }
-
-        // Validação dos campos do formulário de edição
-        const editDescricaoValue = editDescricao.value.trim();
-        const editValorValue = parseFloat(editValor.value);
-        const editDataVencimentoValue = editDataVencimento.value;
-
-        if (!editCategoria.value || !editDescricaoValue || isNaN(editValorValue) || editValorValue <= 0 || !editDataVencimentoValue) {
-            showFeedback('Por favor, preencha todos os campos do formulário de edição corretamente.', 'warning');
-            return;
-        }
-
-        const previousStatus = lancamentos[lancamentoIndex].status;
-
-        // Atualiza os dados do lançamento no array
-        lancamentos[lancamentoIndex].categoria = editCategoria.value;
-        lancamentos[lancamentoIndex].descricao = editDescricaoValue;
-        lancamentos[lancamentoIndex].valor = editValorValue;
-        lancamentos[lancamentoIndex].dataVencimento = editDataVencimentoValue;
-        lancamentos[lancamentoIndex].status = editStatus.value;
-
-        // Atualiza a data de pagamento se o status mudar para 'Pago' ou for revertido
-        if (lancamentos[lancamentoIndex].status === 'Pago' && !lancamentos[lancamentoIndex].dataPagamento) {
-            lancamentos[lancamentoIndex].dataPagamento = new Date().toISOString().split('T')[0];
-        } else if (lancamentos[lancamentoIndex].status === 'Pendente' && previousStatus === 'Pago') {
-            lancamentos[lancamentoIndex].dataPagamento = null;
-        }
-
-        localStorage.setItem('lancamentos', JSON.stringify(lancamentos)); // Salva no Local Storage
-        showFeedback('Lançamento atualizado com sucesso!', 'success');
-        editModal.style.display = 'none'; // Esconde o modal
-
-        // Atualiza as visualizações
-        renderHistorico(mesFiltro.value);
-        renderResumo();
-    });
-
-    /**
-     * Exclui um lançamento do Local Storage.
-     * @param {string} id - O ID do lançamento a ser excluído.
-     */
-    function deleteLancamento(id) {
-        if (confirm('Tem certeza que deseja excluir este lançamento? Esta ação é irreversível.')) {
-            lancamentos = lancamentos.filter(lanc => lanc.id !== id); // Remove o lançamento
-            localStorage.setItem('lancamentos', JSON.stringify(lancamentos)); // Salva
-            showFeedback('Lançamento excluído com sucesso!', 'success');
-            // Atualiza as visualizações
-            renderHistorico(mesFiltro.value);
-            renderResumo();
-        }
-    }
-
-    /**
-     * Marca um lançamento como 'Pago' e registra a data de pagamento.
-     * @param {string} id - O ID do lançamento a ser marcado como pago.
-     */
-    function markAsPaid(id) {
-        const lancamentoToMark = lancamentos.find(lanc => lanc.id === id);
-        if (lancamentoToMark && lancamentoToMark.status === 'Pendente') {
-            lancamentoToMark.status = 'Pago';
-            lancamentoToMark.dataPagamento = new Date().toISOString().split('T')[0]; // Data de hoje
-            localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
-            showFeedback('Lançamento baixado (pago) com sucesso!', 'success');
-            // Atualiza as visualizações
-            renderHistorico(mesFiltro.value);
-            renderResumo();
-        } else if (lancamentoToMark && lancamentoToMark.status === 'Pago') {
-            showFeedback('Este lançamento já está marcado como pago.', 'info');
-        }
-    }
-
-    // --- Eventos de Navegação entre Seções ---
-
-    btnLancamento.addEventListener('click', () => showSection(lancamentoSection));
-    btnResumo.addEventListener('click', () => {
-        showSection(resumoSection);
-        renderResumo(); // Renderiza o resumo ao ativar a seção
-    });
-    btnHistorico.addEventListener('click', () => {
-        showSection(historicoSection);
-        // Define o filtro do mês para o mês atual ao abrir o histórico
-        const hoje = new Date();
-        const mesAtualFormatado = `${hoje.getFullYear()}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}`;
-        mesFiltro.value = mesAtualFormatado;
-        renderHistorico(mesAtualFormatado); // Renderiza o histórico com o filtro do mês atual
-    });
-
-    // --- Eventos de Filtro e Impressão do Histórico ---
-
-    btnFiltrarHistorico.addEventListener('click', () => {
-        renderHistorico(mesFiltro.value); // Aplica o filtro selecionado
-    });
-
-    btnPrintHistorico.addEventListener('click', () => {
-        // Clona a tabela para manipular para impressão
-        const tabelaOriginal = document.getElementById('tabelaHistorico');
-        const tabelaParaImprimir = tabelaOriginal.cloneNode(true);
-        
-        // Remove a coluna e os botões de "Ações" para impressão
-        let acoesIndex = -1;
-        const headers = Array.from(tabelaParaImprimir.querySelectorAll('th'));
-        headers.forEach((th, index) => {
-            if (th.textContent.trim() === 'Ações') {
-                acoesIndex = index;
+                editandoId = id;
+                formLancamento.querySelector('button[type="submit"]').textContent = 'Salvar Edição';
+                document.getElementById('lancamentos').scrollIntoView({ behavior: 'smooth' });
             }
-        });
-
-        if (acoesIndex !== -1) {
-            headers[acoesIndex].remove(); // Remove o cabeçalho "Ações"
-            Array.from(tabelaParaImprimir.querySelectorAll('tbody tr')).forEach(row => {
-                if (row.cells[acoesIndex]) {
-                    row.cells[acoesIndex].remove(); // Remove a célula "Ações" de cada linha
-                }
-            });
-        }
-        
-        // Remove atributos data-label e classes para garantir a formatação de impressão
-        tabelaParaImprimir.querySelectorAll('td, th, tr').forEach(el => {
-            if (el.tagName === 'TD' && el.hasAttribute('data-label')) {
-                el.removeAttribute('data-label');
+        } else if (target.classList.contains('delete-btn')) {
+            if (confirm('Tem certeza que deseja excluir este lançamento?')) {
+                lancamentos = lancamentos.filter(lanc => lanc.id !== id);
+                localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
+                popularFiltroMesAno();
+                renderizarLancamentos();
             }
-            el.style.cssText = ''; // Limpa estilos inline
-            if (el.tagName === 'TD') {
-                el.classList.add('no-pseudo'); // Adiciona classe para CSS de impressão
+        } else if (target.classList.contains('pay-btn')) {
+            const lancamentoParaBaixar = lancamentos.find(lanc => lanc.id === id);
+            if (lancamentoParaBaixar && lancamentoParaBaixar.statusPagamento === 'pendente') {
+                lancamentoParaBaixar.statusPagamento = 'pago';
+                // Define a data de pagamento como o dia atual no formato YYYY-MM-DD
+                lancamentoParaBaixar.dataPagamento = new Date().toISOString().split('T')[0];
+                localStorage.setItem('lancamentos', JSON.stringify(lancamentos));
+                renderizarLancamentos();
             }
-        });
-        
-        // Garante que o thead esteja visível para impressão (caso o CSS o esconda em mobile)
-        if (tabelaParaImprimir.querySelector('thead')) {
-            tabelaParaImprimir.querySelector('thead').style.display = '';
         }
-
-        // Abre uma nova janela para impressão
-        const printWindow = window.open('', '', 'height=600,width=800');
-        printWindow.document.write('<html><head><title>Planilha Financeira</title>');
-        // Adiciona estilos específicos para impressão
-        printWindow.document.write('<style>');
-        printWindow.document.write(`
-            @media print {
-                td.no-pseudo::before {
-                    content: none !important; /* Desativa pseudo-elementos em mobile para impressão */
-                }
-            }
-            body { font-family: 'Lato', sans-serif; margin: 20px; color: #343A40; }
-            h1 { color: #0A387E; font-family: 'Poppins', sans-serif; font-size: 2em;}
-            p { color: #6C757D; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #0A387E; color: white; font-weight: 600; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
-            .status-pago { color: #28a745; font-weight: bold; }
-            .status-pendente { color: #dc3545; font-weight: bold; }
-        `);
-        printWindow.document.write('</style>');
-        printWindow.document.write('</head><body>');
-        printWindow.document.write('<h1>Planilha de Lançamentos Financeiros</h1>');
-        // Adiciona informações sobre o período filtrado
-        if (mesFiltro.value) {
-            const [ano, mes] = mesFiltro.value.split('-');
-            const dataFiltro = new Date(parseInt(ano), parseInt(mes) - 1, 1);
-            printWindow.document.write(`<p><strong>Mês de Referência:</strong> ${dataFiltro.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}</p>`);
-        } else {
-            printWindow.document.write('<p><strong>Período:</strong> Todos os Lançamentos</p>');
-        }
-        printWindow.document.write(tabelaParaImprimir.outerHTML); // Adiciona a tabela ao corpo da janela de impressão
-        printWindow.document.write('</body></html>');
-        printWindow.document.close();
-        printWindow.print(); // Abre a caixa de diálogo de impressão
     });
 
-    // --- Eventos de Abertura/Fechamento do Modal de Edição ---
-    closeButton.addEventListener('click', () => {
-        editModal.style.display = 'none';
+    // Eventos de mudança para selects de filtro e tipo
+    tipoSelect.addEventListener('change', popularCategorias);
+    filtroMesAnoSelect.addEventListener('change', renderizarLancamentos);
+
+    // Evento do botão de imprimir
+    btnImprimir.addEventListener('click', () => {
+        window.print();
     });
 
-    // Fecha o modal se o usuário clicar fora dele
-    window.addEventListener('click', (event) => {
-        if (event.target === editModal) {
-            editModal.style.display = 'none';
-        }
+    // --- Eventos do Scanner ---
+    openScannerBtn.addEventListener('click', () => {
+        document.getElementById('lancamentos').style.display = 'none'; // Esconde o formulário
+        barcodeScannerSection.classList.remove('scanner-hidden'); // Mostra a seção do scanner
+        startScanner(); // Inicia o scanner automaticamente
     });
+
+    // Os botões start/stop são controlados principalmente internamente pela lógica do scanner.
+    // startScannerBtn.addEventListener('click', startScanner); // Pode ser útil para reiniciar manualmente após erro
+    stopScannerBtn.addEventListener('click', stopScanner);
+
+    closeScannerBtn.addEventListener('click', () => {
+        stopScanner(); // Garante que o scanner pare
+        barcodeScannerSection.classList.add('scanner-hidden'); // Esconde a seção do scanner
+        document.getElementById('lancamentos').style.display = 'block'; // Mostra o formulário de lançamento
+    });
+
 
     // --- Inicialização da Aplicação ---
-    // Define o mês inicial do filtro de histórico para o mês atual e carrega as visualizações
-    const hoje = new Date();
-    const mesAtualFormatado = `${hoje.getFullYear()}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}`;
-    mesFiltro.value = mesAtualFormatado;
+    function initializeApp() {
+        popularCategorias();
+        popularFiltroMesAno();
+        renderizarLancamentos();
+        // Garante que o formulário de lançamento está visível e o scanner oculto ao carregar a página
+        document.getElementById('lancamentos').style.display = 'block';
+        barcodeScannerSection.classList.add('scanner-hidden');
+    }
 
-    showSection(lancamentoSection); // Começa na seção de novo lançamento
-    renderHistorico(mesAtualFormatado); // Renderiza o histórico com o filtro do mês atual
-    renderResumo(); // Renderiza o resumo mensal inicial
+    initializeApp();
 });
